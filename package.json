@@ -1,27 +1,15 @@
 {
-  "name": "nodus-app",
-  "version": "0.1.0",
+  "name": "nodus",
+  "version": "0.0.0",
   "private": true,
+  "packageManager": "pnpm@11.5.0",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "lucide-react": "^1.45.0",
-    "next": "15.5.25",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "start": "turbo run start"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "15.5.25",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "turbo": "2.10.12"
   }
 }
