@@ -9,10 +9,21 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@nodus/db": "workspace:*",
+    "@nodus/schemas": "workspace:*",
+    "@prisma/client": "^6",
+    "@tanstack/react-query": "^5",
+    "@trpc/client": "^11",
+    "@trpc/react-query": "^11",
+    "@trpc/server": "^11",
+    "bcryptjs": "^3",
     "lucide-react": "^1.45.0",
     "next": "15.5.25",
+    "next-auth": "5.0.0-beta.32",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "superjson": "^2",
+    "zod": "^4"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.7",

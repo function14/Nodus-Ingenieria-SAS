@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: nodus-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nodus
+      POSTGRES_PASSWORD: nodus
+      POSTGRES_DB: nodus
+    ports:
+      - "5442:5432"
+    volumes:
+      - nodus_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nodus -d nodus"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    container_name: nodus-redis
+    restart: unless-stopped
+    ports:
+      - "6389:6379"
+
+  minio:
+    image: minio/minio:latest
+    container_name: nodus-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: nodus
+      MINIO_ROOT_PASSWORD: nodus-local-secret
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    volumes:
+      - nodus_minio_data:/data
+
+volumes:
+  nodus_db_data:
+  nodus_minio_data:

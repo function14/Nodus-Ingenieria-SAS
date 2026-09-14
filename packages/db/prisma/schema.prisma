@@ -1,0 +1,247 @@
+// NODUS — schema del espinazo (Día 1). Workflow/SLA/plantillas como DATOS.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------- Tenancy ----------------
+model Tenant {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+
+  users        User[]
+  companies    Company[]
+  cases        Case[]
+  auditLogs    AuditLog[]
+  domainEvents DomainEvent[]
+}
+
+// ---------------- RBAC ----------------
+model Role {
+  id    String @id @default(cuid())
+  code  String @unique // advisory | consultor | mipyme | admin | system
+  name  String
+  users User[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  email        String
+  name         String
+  passwordHash String
+  roleId       String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id])
+  role          Role             @relation(fields: [roleId], references: [id])
+  submissions   FormSubmission[]
+  auditLogs     AuditLog[]
+  assignedCases Case[]           @relation("CaseAssignee")
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+// ---------------- LOV (parametrización centralizada) ----------------
+model LovGroup {
+  id    String    @id @default(cuid())
+  code  String    @unique
+  name  String
+  items LovItem[]
+}
+
+model LovItem {
+  id       String   @id @default(cuid())
+  groupId  String
+  code     String
+  label    String
+  order    Int      @default(0)
+  isActive Boolean  @default(true)
+
+  group LovGroup @relation(fields: [groupId], references: [id])
+
+  @@unique([groupId, code])
+}
+
+// ---------------- Workflow as Data ----------------
+model CaseState {
+  id         String  @id @default(cuid())
+  code       String  @unique
+  name       String
+  order      Int     @default(0)
+  isInitial  Boolean @default(false)
+  isTerminal Boolean @default(false)
+  color      String?
+
+  casesHere       Case[]
+  transitionsFrom CaseTransition[] @relation("TransitionFrom")
+  transitionsTo   CaseTransition[] @relation("TransitionTo")
+}
+
+model CaseTransition {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  fromStateId  String
+  toStateId    String
+  allowedRoles String[]
+  guards       Json     @default("[]")
+  effects      Json     @default("[]")
+
+  fromState CaseState @relation("TransitionFrom", fields: [fromStateId], references: [id])
+  toState   CaseState @relation("TransitionTo", fields: [toStateId], references: [id])
+
+  @@unique([fromStateId, toStateId])
+}
+
+// ---------------- Dominio ----------------
+model Company {
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  taxId        String?
+  emailDomain  String?
+  primaryEmail String?
+  createdAt    DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  cases  Case[]
+
+  @@index([tenantId])
+}
+
+model Case {
+  id             String   @id @default(cuid())
+  tenantId       String
+  humanId        String
+  title          String
+  companyId      String
+  currentStateId String
+  assignedUserId String?
+  version        Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  company      Company          @relation(fields: [companyId], references: [id])
+  currentState CaseState        @relation(fields: [currentStateId], references: [id])
+  assignedUser User?            @relation("CaseAssignee", fields: [assignedUserId], references: [id])
+  submissions  FormSubmission[]
+  auditLogs    AuditLog[]
+  slaTimers    SlaTimer[]
+
+  @@unique([tenantId, humanId])
+  @@index([tenantId, currentStateId])
+}
+
+// ---------------- Forms as Data ----------------
+model Template {
+  id       String            @id @default(cuid())
+  code     String            @unique
+  name     String
+  versions TemplateVersion[]
+}
+
+model TemplateVersion {
+  id         String   @id @default(cuid())
+  templateId String
+  version    Int
+  jsonSchema Json
+  uiSchema   Json     @default("{}")
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  template    Template         @relation(fields: [templateId], references: [id])
+  submissions FormSubmission[]
+
+  @@unique([templateId, version])
+}
+
+model FormSubmission {
+  id                String   @id @default(cuid())
+  templateVersionId String
+  caseId            String
+  version           Int      @default(1)
+  data              Json
+  submittedById     String
+  createdAt         DateTime @default(now())
+
+  templateVersion TemplateVersion @relation(fields: [templateVersionId], references: [id])
+  case            Case            @relation(fields: [caseId], references: [id])
+  submittedBy     User            @relation(fields: [submittedById], references: [id])
+}
+
+// ---------------- Auditoría: append-only + hash-chain ----------------
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  seq        Int
+  caseId     String?
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  fromState  String?
+  toState    String?
+  payload    Json     @default("{}")
+  prevHash   String?
+  rowHash    String
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  case   Case?  @relation(fields: [caseId], references: [id])
+  actor  User?  @relation(fields: [actorId], references: [id])
+
+  @@unique([tenantId, seq])
+  @@index([tenantId, createdAt])
+  @@index([caseId])
+}
+
+// ---------------- Event outbox ----------------
+model DomainEvent {
+  id          String    @id @default(cuid())
+  tenantId    String
+  type        String
+  payload     Json      @default("{}")
+  status      String    @default("PENDING")
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([status, createdAt])
+}
+
+// ---------------- SLA parametrizado ----------------
+model SlaRule {
+  id           String     @id @default(cuid())
+  stateCode    String     @unique
+  hours        Int
+  warnPct      Int        @default(70)
+  escalatePct  Int        @default(100)
+  escalateRole String?
+  timers       SlaTimer[]
+}
+
+model SlaTimer {
+  id         String    @id @default(cuid())
+  caseId     String
+  ruleId     String
+  startedAt  DateTime  @default(now())
+  dueAt      DateTime
+  breachedAt DateTime?
+  status     String    @default("RUNNING")
+
+  case Case    @relation(fields: [caseId], references: [id])
+  rule SlaRule @relation(fields: [ruleId], references: [id])
+
+  @@index([caseId])
+}
