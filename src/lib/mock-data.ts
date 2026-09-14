@@ -60,7 +60,7 @@ export const kanbanColumns: {
       {
         id: 'NOD-2026-005',
         company: 'Comercial Andes',
-        roleColorClass: 'bg-consultor',
+        roleColorClass: 'bg-teal-deep',
         consultantInitials: 'MR',
       },
     ],
@@ -72,7 +72,7 @@ export const kanbanColumns: {
       {
         id: 'NOD-2026-003',
         company: 'Salud Total',
-        roleColorClass: 'bg-consultor',
+        roleColorClass: 'bg-teal-deep',
         consultantInitials: 'AR',
       },
     ],
@@ -84,7 +84,7 @@ export const kanbanColumns: {
       {
         id: 'NOD-2026-002',
         company: 'RetailModa',
-        roleColorClass: 'bg-consultor',
+        roleColorClass: 'bg-teal-deep',
         consultantInitials: 'JG',
       },
     ],
@@ -100,6 +100,6 @@ export const kanbanColumns: {
 
 export const radialTimers = [
   { label: 'NOD-2026-002', pct: 72, color: '#16A34A' },
-  { label: 'NOD-2026-004', pct: 90, color: '#FACC15' },
+  { label: 'NOD-2026-004', pct: 90, color: '#CA8A04' },
   { label: 'NOD-2026-008', pct: 105, color: '#DC2626' },
 ];

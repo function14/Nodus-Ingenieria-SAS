@@ -12,7 +12,7 @@ export function FunnelChart() {
             <span className="w-24 text-xs text-ink-muted text-right shrink-0">{step.stage}</span>
             <div className="flex-1">
               <div
-                className="h-7 rounded-md bg-primary/80 flex items-center px-2 text-white text-xs font-bold transition-all"
+                className="h-7 rounded-md bg-primary-deep flex items-center px-2 text-white text-xs font-bold transition-all"
                 style={{ width: `${pct}%`, minWidth: '2.5rem' }}
               >
                 {step.value}

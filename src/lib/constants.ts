@@ -1,10 +1,16 @@
 export type Role = 'advisory' | 'consultor' | 'mipyme' | 'admin';
 
-export const roles: { id: Role; label: string; shortLabel: string; colorClass: string }[] = [
-  { id: 'advisory', label: 'Advisory / PMO', shortLabel: 'PMO', colorClass: 'bg-advisory' },
-  { id: 'consultor', label: 'Consultor', shortLabel: 'Consultor', colorClass: 'bg-consultor' },
-  { id: 'mipyme', label: 'Mipyme', shortLabel: 'Mipyme', colorClass: 'bg-mipyme' },
-  { id: 'admin', label: 'Admin', shortLabel: 'Admin', colorClass: 'bg-admin' },
+export const roles: {
+  id: Role;
+  label: string;
+  shortLabel: string;
+  colorClass: string;
+  activeClass: string;
+}[] = [
+  { id: 'advisory', label: 'Advisory / PMO', shortLabel: 'PMO', colorClass: 'bg-advisory', activeClass: 'bg-advisory' },
+  { id: 'consultor', label: 'Consultor', shortLabel: 'Consultor', colorClass: 'bg-consultor', activeClass: 'bg-teal-deep' },
+  { id: 'mipyme', label: 'Mipyme', shortLabel: 'Mipyme', colorClass: 'bg-mipyme', activeClass: 'bg-primary-deep' },
+  { id: 'admin', label: 'Admin', shortLabel: 'Admin', colorClass: 'bg-admin', activeClass: 'bg-admin' },
 ];
 
 export const navItems = [

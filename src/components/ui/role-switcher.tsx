@@ -20,7 +20,7 @@ export function RoleSwitcher() {
           aria-pressed={active === role.id}
           aria-label={`Ver como ${role.label}`}
           className={`flex-1 px-2 py-1.5 transition-colors whitespace-nowrap ${
-            active === role.id ? `${role.colorClass} text-white` : 'bg-surface text-ink-muted hover:bg-cream-dark'
+            active === role.id ? `${role.activeClass} text-white` : 'bg-surface text-ink-muted hover:bg-cream-dark'
           }`}
         >
           {role.shortLabel}
