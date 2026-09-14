@@ -1,0 +1,12 @@
+**/node_modules
+**/.next
+**/.turbo
+.git
+.gitignore
+**/.env
+**/.env.*
+!**/.env.example
+infra
+.vercel
+coverage
+Dockerfile*
