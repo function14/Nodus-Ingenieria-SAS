@@ -4,6 +4,7 @@ import { Outfit, Rubik, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { OfflineBanner } from '@/components/layout/offline-banner';
 import { AppShell } from '@/components/layout/app-shell';
+import { Providers } from './providers';
 
 const outfit = Outfit({
   variable: '--font-outfit',
@@ -42,8 +43,10 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${outfit.variable} ${rubik.variable} ${jetbrainsMono.variable} h-full`}>
       <body className="min-h-full flex flex-col antialiased">
-        <OfflineBanner />
-        <AppShell>{children}</AppShell>
+        <Providers>
+          <OfflineBanner />
+          <AppShell>{children}</AppShell>
+        </Providers>
       </body>
     </html>
   );

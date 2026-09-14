@@ -29,6 +29,9 @@ const iconMap: Record<string, React.ElementType> = {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
+  // La pantalla de login se muestra sin el shell (sidebar / bottom tabs).
+  if (pathname === '/login') return <>{children}</>;
+
   return (
     <div className="flex h-full min-h-screen">
       {/* Desktop sidebar */}
