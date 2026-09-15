@@ -6,7 +6,7 @@ import { TRPCProvider } from '@/lib/trpc/provider';
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <SessionProvider>
+    <SessionProvider refetchOnWindowFocus={false}>
       <TRPCProvider>{children}</TRPCProvider>
     </SessionProvider>
   );
