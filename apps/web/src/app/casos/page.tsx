@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { trpc } from '@/lib/trpc/client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
@@ -39,9 +40,14 @@ export default function CasosPage() {
                 </thead>
                 <tbody>
                   {data.map((c) => (
-                    <tr key={c.id} className="border-b border-border/60">
-                      <td className="py-2 pr-3 font-[family-name:var(--font-mono)] text-[12px]">
-                        {c.humanId}
+                    <tr key={c.id} className="border-b border-border/60 hover:bg-cream-dark/50">
+                      <td className="py-2 pr-3">
+                        <Link
+                          href={`/casos/${c.id}`}
+                          className="font-[family-name:var(--font-mono)] text-[12px] text-primary-deep font-medium hover:underline"
+                        >
+                          {c.humanId}
+                        </Link>
                       </td>
                       <td className="py-2 pr-3">{c.company}</td>
                       <td className="py-2 pr-3">

@@ -17,6 +17,7 @@ function slug(s: string): string {
 // comparten seed, motor de workflow y verifyChain.
 
 async function main() {
+  await prisma.notification.deleteMany();
   await prisma.slaTimer.deleteMany();
   await prisma.formSubmission.deleteMany();
   await prisma.auditLog.deleteMany();
