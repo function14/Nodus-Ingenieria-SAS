@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { createHash } from 'node:crypto';
+import { computeRowHash } from '../src/audit';
 
 const prisma = new PrismaClient();
 
@@ -13,32 +13,8 @@ function slug(s: string): string {
     .replace(/^-|-$/g, '');
 }
 
-// hash-chain: cada registro encadena el hash del anterior (bitacora a prueba de manipulacion)
-function rowHashOf(
-  prevHash: string | null,
-  rec: {
-    seq: number;
-    action: string;
-    entityType: string;
-    entityId: string;
-    fromState: string | null;
-    toState: string | null;
-    payload: unknown;
-  },
-): string {
-  const canonical = JSON.stringify([
-    rec.seq,
-    rec.action,
-    rec.entityType,
-    rec.entityId,
-    rec.fromState,
-    rec.toState,
-    rec.payload,
-  ]);
-  return createHash('sha256')
-    .update((prevHash ?? 'GENESIS') + '|' + canonical)
-    .digest('hex');
-}
+// hash-chain: la funcion vive en @nodus/db (packages/db/src/audit.ts) y la
+// comparten seed, motor de workflow y verifyChain.
 
 async function main() {
   await prisma.slaTimer.deleteMany();
@@ -207,7 +183,7 @@ async function main() {
       toState: 'CREADO',
       payload: { humanId: c.humanId, company: c.company } as unknown,
     };
-    const rowHash = rowHashOf(prevHash, rec);
+    const rowHash = computeRowHash(prevHash, rec);
     await prisma.auditLog.create({
       data: {
         tenantId: tenant.id,

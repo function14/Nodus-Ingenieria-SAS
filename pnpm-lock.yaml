@@ -20,6 +20,9 @@ importers:
       '@nodus/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas
+      '@nodus/workflow':
+        specifier: workspace:*
+        version: link:../../packages/workflow
       '@prisma/client':
         specifier: ^6
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
@@ -116,6 +119,19 @@ importers:
         specifier: ^4
         version: 4.6.4
     devDependencies:
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/workflow:
+    dependencies:
+      '@nodus/db':
+        specifier: workspace:*
+        version: link:../db
+    devDependencies:
+      tsx:
+        specifier: ^4
+        version: 4.23.13
       typescript:
         specifier: ^5
         version: 5.9.3

@@ -18,8 +18,9 @@ model Tenant {
   users        User[]
   companies    Company[]
   cases        Case[]
-  auditLogs    AuditLog[]
-  domainEvents DomainEvent[]
+  auditLogs     AuditLog[]
+  domainEvents  DomainEvent[]
+  notifications Notification[]
 }
 
 // ---------------- RBAC ----------------
@@ -45,6 +46,7 @@ model User {
   submissions   FormSubmission[]
   auditLogs     AuditLog[]
   assignedCases Case[]           @relation("CaseAssignee")
+  notifications Notification[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -137,6 +139,7 @@ model Case {
   submissions  FormSubmission[]
   auditLogs    AuditLog[]
   slaTimers    SlaTimer[]
+  notifications Notification[]
 
   @@unique([tenantId, humanId])
   @@index([tenantId, currentStateId])
@@ -244,4 +247,22 @@ model SlaTimer {
   rule SlaRule @relation(fields: [ruleId], references: [id])
 
   @@index([caseId])
+}
+
+// ---------------- Notificaciones (in-app; canal Comunicaciones) ----------------
+model Notification {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String?
+  caseId    String?
+  type      String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+  case   Case?  @relation(fields: [caseId], references: [id])
+
+  @@index([tenantId, createdAt])
 }
