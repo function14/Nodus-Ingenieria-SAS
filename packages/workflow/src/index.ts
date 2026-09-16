@@ -215,3 +215,72 @@ export async function processOutbox(tenantId: string): Promise<number> {
 
   return processed;
 }
+
+/**
+ * Barrido de SLA: marca timers en riesgo (WARN) o vencidos (BREACHED), crea
+ * notificaciones, escalamiento y evento SLA_BREACHED. Idempotente. En prod lo
+ * dispara un cron/worker; aca lo llama /api/cron/sla o un trigger manual.
+ */
+export async function sweepSla(tenantId?: string): Promise<{ warned: number; breached: number }> {
+  const now = new Date();
+  const timers = await prisma.slaTimer.findMany({
+    where: {
+      status: { in: ['RUNNING', 'WARN'] },
+      ...(tenantId ? { case: { tenantId } } : {}),
+    },
+    include: { rule: true, case: true },
+  });
+
+  let warned = 0;
+  let breached = 0;
+
+  for (const t of timers) {
+    const start = t.startedAt.getTime();
+    const due = t.dueAt.getTime();
+    const totalMs = Math.max(due - start, 1);
+    const pct = ((now.getTime() - start) / totalMs) * 100;
+
+    if (now.getTime() >= due) {
+      await prisma.$transaction(async (tx) => {
+        await tx.slaTimer.update({ where: { id: t.id }, data: { status: 'BREACHED', breachedAt: now } });
+        await tx.domainEvent.create({
+          data: { tenantId: t.case.tenantId, type: 'SLA_BREACHED', payload: { caseId: t.caseId, stage: t.rule.stateCode } },
+        });
+        await tx.notification.create({
+          data: {
+            tenantId: t.case.tenantId,
+            caseId: t.caseId,
+            type: 'SLA_BREACHED',
+            message: 'SLA VENCIDO: caso ' + t.case.humanId + ' en etapa ' + t.rule.stateCode,
+          },
+        });
+        if (t.rule.escalateRole) {
+          await tx.notification.create({
+            data: {
+              tenantId: t.case.tenantId,
+              caseId: t.caseId,
+              type: 'SLA_ESCALADO',
+              message: 'Escalamiento a ' + t.rule.escalateRole + ': ' + t.case.humanId,
+            },
+          });
+        }
+      });
+      breached += 1;
+    } else if (pct >= t.rule.warnPct && t.status === 'RUNNING') {
+      await prisma.$transaction(async (tx) => {
+        await tx.slaTimer.update({ where: { id: t.id }, data: { status: 'WARN' } });
+        await tx.notification.create({
+          data: {
+            tenantId: t.case.tenantId,
+            caseId: t.caseId,
+            type: 'SLA_WARN',
+            message: 'SLA en riesgo: caso ' + t.case.humanId + ' en etapa ' + t.rule.stateCode,
+          },
+        });
+      });
+      warned += 1;
+    }
+  }
+
+  return { warned, breached };
+}

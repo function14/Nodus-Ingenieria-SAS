@@ -11,7 +11,7 @@ export const dashboardRouter = router({
         include: { currentState: true, company: true, assignedUser: true },
       }),
       ctx.prisma.slaTimer.findMany({
-        where: { status: 'RUNNING', case: { tenantId } },
+        where: { status: { in: ['RUNNING', 'WARN', 'BREACHED'] }, case: { tenantId } },
         include: { rule: true, case: { include: { currentState: true } } },
       }),
     ]);

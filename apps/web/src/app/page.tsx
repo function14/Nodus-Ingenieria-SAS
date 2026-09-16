@@ -25,6 +25,12 @@ export default function DashboardPage() {
   }, [status, role, isPmo, router]);
 
   const { data, isLoading } = trpc.dashboard.pmo.useQuery(undefined, { enabled: isPmo });
+  const utils = trpc.useUtils();
+  const sweep = trpc.sla.sweep.useMutation({
+    onSuccess: async () => {
+      await Promise.all([utils.dashboard.pmo.invalidate(), utils.notifications.recent.invalidate()]);
+    },
+  });
 
   if (status === 'authenticated' && role && !isPmo) {
     return <p className="text-sm text-ink-muted">Redirigiendo a tus casos…</p>;
@@ -32,13 +38,28 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-[family-name:var(--font-display)] font-bold">Dashboard PMO</h1>
-        <div className="hidden sm:flex items-center gap-2 text-xs text-ink-muted">
-          <Sparkles size={14} />
-          Command Center Solar
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => sweep.mutate()}
+            disabled={sweep.isPending}
+            className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-cream-dark disabled:opacity-60"
+          >
+            {sweep.isPending ? 'Revisando…' : 'Revisar SLA'}
+          </button>
+          <span className="hidden sm:flex items-center gap-2 text-xs text-ink-muted">
+            <Sparkles size={14} />
+            Command Center Solar
+          </span>
         </div>
       </div>
+      {sweep.data && (
+        <p className="text-xs text-ink-muted -mt-2">
+          Barrido SLA: {sweep.data.warned} en riesgo, {sweep.data.breached} vencidos.
+        </p>
+      )}
 
       {isLoading && <p className="text-sm text-ink-muted">Cargando panel…</p>}
 

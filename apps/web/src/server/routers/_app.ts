@@ -6,6 +6,7 @@ import { templatesRouter } from './templates';
 import { companiesRouter } from './companies';
 import { postulationsRouter } from './postulations';
 import { dashboardRouter } from './dashboard';
+import { slaRouter } from './sla';
 
 export const appRouter = router({
   cases: casesRouter,
@@ -15,6 +16,7 @@ export const appRouter = router({
   companies: companiesRouter,
   postulations: postulationsRouter,
   dashboard: dashboardRouter,
+  sla: slaRouter,
 });
 
 export type AppRouter = typeof appRouter;
