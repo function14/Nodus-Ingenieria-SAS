@@ -18,6 +18,7 @@ function slug(s: string): string {
 
 async function main() {
   await prisma.notification.deleteMany();
+  await prisma.postulation.deleteMany();
   await prisma.slaTimer.deleteMany();
   await prisma.formSubmission.deleteMany();
   await prisma.auditLog.deleteMany();
@@ -106,7 +107,7 @@ async function main() {
     { code: 'clasificar', name: 'Clasificar', from: 'EN_REVISION', to: 'CLASIFICADO', roles: ['advisory'] },
     { code: 'asignar', name: 'Asignar consultor', from: 'CLASIFICADO', to: 'ASIGNADO', roles: ['advisory'] },
     { code: 'autorizar_ejecucion', name: 'Autorizar ejecucion', from: 'ASIGNADO', to: 'EN_EJECUCION', roles: ['advisory'] },
-    { code: 'cerrar', name: 'Cerrar caso', from: 'EN_EJECUCION', to: 'CERRADO', roles: ['advisory'] },
+    { code: 'cerrar', name: 'Cerrar / aceptar cierre', from: 'EN_EJECUCION', to: 'CERRADO', roles: ['advisory', 'mipyme'] },
   ];
   for (const t of transitions) {
     await prisma.caseTransition.create({

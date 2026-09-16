@@ -21,6 +21,7 @@ model Tenant {
   auditLogs     AuditLog[]
   domainEvents  DomainEvent[]
   notifications Notification[]
+  postulations  Postulation[]
 }
 
 // ---------------- RBAC ----------------
@@ -47,6 +48,7 @@ model User {
   auditLogs     AuditLog[]
   assignedCases Case[]           @relation("CaseAssignee")
   notifications Notification[]
+  postulations  Postulation[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -140,6 +142,7 @@ model Case {
   auditLogs    AuditLog[]
   slaTimers    SlaTimer[]
   notifications Notification[]
+  postulations Postulation[]
 
   @@unique([tenantId, humanId])
   @@index([tenantId, currentStateId])
@@ -265,4 +268,22 @@ model Notification {
   case   Case?  @relation(fields: [caseId], references: [id])
 
   @@index([tenantId, createdAt])
+}
+
+// ---------------- Bolsa interna: postulaciones del consultor ----------------
+model Postulation {
+  id          String   @id @default(cuid())
+  tenantId    String
+  caseId      String
+  consultorId String
+  note        String?
+  status      String   @default("PENDIENTE")
+  createdAt   DateTime @default(now())
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id])
+  case      Case   @relation(fields: [caseId], references: [id])
+  consultor User   @relation(fields: [consultorId], references: [id])
+
+  @@unique([caseId, consultorId])
+  @@index([tenantId])
 }

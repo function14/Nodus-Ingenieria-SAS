@@ -99,6 +99,51 @@ export const casesRouter = router({
       }
     }),
 
+  // Advisory asigna un consultor postulado: fija responsable + ejecuta 'asignar'.
+  assign: protectedProcedure
+    .input(z.object({ caseId: z.string().min(1), consultorId: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== 'advisory') {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Advisory/PMO puede asignar' });
+      }
+      const c = await ctx.prisma.case.findFirst({
+        where: { id: input.caseId, tenantId: ctx.user.tenantId },
+        include: { currentState: true },
+      });
+      if (!c) throw new TRPCError({ code: 'NOT_FOUND' });
+      if (c.currentState.code !== 'CLASIFICADO') {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'El caso no esta listo para asignar (CLASIFICADO)' });
+      }
+      const post = await ctx.prisma.postulation.findUnique({
+        where: { caseId_consultorId: { caseId: input.caseId, consultorId: input.consultorId } },
+      });
+      if (!post) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Ese consultor no se postulo a este caso' });
+
+      await ctx.prisma.$transaction([
+        ctx.prisma.case.update({ where: { id: input.caseId }, data: { assignedUserId: input.consultorId } }),
+        ctx.prisma.postulation.update({ where: { id: post.id }, data: { status: 'ASIGNADO' } }),
+        ctx.prisma.postulation.updateMany({
+          where: { caseId: input.caseId, id: { not: post.id } },
+          data: { status: 'RECHAZADO' },
+        }),
+      ]);
+
+      try {
+        const result = await executeTransition({
+          caseId: input.caseId,
+          transitionCode: 'asignar',
+          actor: { id: ctx.user.id, role: ctx.user.role, tenantId: ctx.user.tenantId },
+        });
+        await processOutbox(ctx.user.tenantId);
+        return result;
+      } catch (e) {
+        if (e instanceof WorkflowError) {
+          throw new TRPCError({ code: workflowCodeToTrpc[e.code] ?? 'BAD_REQUEST', message: e.message });
+        }
+        throw e;
+      }
+    }),
+
   // Apertura del caso (T1) - Forms-as-Data: valida contra el JSON Schema, crea el
   // caso en el estado inicial + submission versionada + bitacora genesis encadenada.
   create: protectedProcedure
