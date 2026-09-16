@@ -1,11 +1,10 @@
-import { funnel } from '@/lib/mock-data';
-
-export function FunnelChart() {
-  const max = funnel[0].value;
+export function FunnelChart({ data }: { data: { stage: string; value: number }[] }) {
+  if (data.length === 0) return <p className="text-sm text-ink-muted">Sin datos.</p>;
+  const max = Math.max(...data.map((d) => d.value), 1);
 
   return (
     <div className="flex flex-col gap-2">
-      {funnel.map((step) => {
+      {data.map((step) => {
         const pct = (step.value / max) * 100;
         return (
           <div key={step.stage} className="flex items-center gap-3">

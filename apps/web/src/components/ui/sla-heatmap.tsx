@@ -1,34 +1,24 @@
-'use client';
-
-import { slaByStage } from '@/lib/mock-data';
-
-export function SLAHeatmap() {
-  const totalMax = Math.max(...slaByStage.map((s) => s.ok + s.warn + s.critical));
+export function SLAHeatmap({
+  data,
+}: {
+  data: { stage: string; ok: number; warn: number; critical: number }[];
+}) {
+  if (data.length === 0) return <p className="text-sm text-ink-muted">Sin timers SLA activos.</p>;
+  const totalMax = Math.max(...data.map((s) => s.ok + s.warn + s.critical), 1);
 
   return (
     <div className="flex flex-col gap-2.5">
-      {slaByStage.map((row) => {
+      {data.map((row) => {
         const total = row.ok + row.warn + row.critical;
         return (
           <div key={row.stage} className="flex items-center gap-3">
             <span className="w-24 text-xs text-ink-muted text-right shrink-0">{row.stage}</span>
             <div className="flex-1 flex h-5 rounded overflow-hidden border border-border bg-cream-dark">
-              <div
-                className="bg-success transition-all"
-                style={{ width: `${(row.ok / totalMax) * 100}%` }}
-              />
-              <div
-                className="bg-warn transition-all"
-                style={{ width: `${(row.warn / totalMax) * 100}%` }}
-              />
-              <div
-                className="bg-danger transition-all"
-                style={{ width: `${(row.critical / totalMax) * 100}%` }}
-              />
+              <div className="bg-success transition-all" style={{ width: `${(row.ok / totalMax) * 100}%` }} />
+              <div className="bg-warn transition-all" style={{ width: `${(row.warn / totalMax) * 100}%` }} />
+              <div className="bg-danger transition-all" style={{ width: `${(row.critical / totalMax) * 100}%` }} />
             </div>
-            <span className="w-10 text-xs font-[family-name:var(--font-mono)] text-right shrink-0">
-              {total}
-            </span>
+            <span className="w-10 text-xs font-[family-name:var(--font-mono)] text-right shrink-0">{total}</span>
           </div>
         );
       })}

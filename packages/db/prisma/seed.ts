@@ -141,7 +141,11 @@ async function main() {
     { stateCode: 'ASIGNADO', hours: 168 },
     { stateCode: 'EN_EJECUCION', hours: 240 },
   ];
-  for (const s of slaData) await prisma.slaRule.create({ data: s });
+  const slaRuleByState: Record<string, { id: string; hours: number }> = {};
+  for (const s of slaData) {
+    const r = await prisma.slaRule.create({ data: s });
+    slaRuleByState[s.stateCode] = { id: r.id, hours: s.hours };
+  }
 
   const companyNames = ['FoodTech SAS', 'RetailModa', 'Salud Total', 'Ingenieria Nova', 'Comercial Andes', 'Agricola del Sur', 'Transportes Rapidos'];
   const companies: Record<string, string> = {};
@@ -164,6 +168,7 @@ async function main() {
 
   let seq = 0;
   let prevHash: string | null = null;
+  let timerIdx = 0;
   for (const c of caseData) {
     const created = await prisma.case.create({
       data: {
@@ -203,6 +208,19 @@ async function main() {
       },
     });
     prevHash = rowHash;
+
+    // SLA timer para casos activos (variando el consumo: ok / riesgo / critico)
+    const rule = slaRuleByState[c.state];
+    if (rule && c.state !== 'CERRADO') {
+      const consumedPct = [30, 60, 92, 115][timerIdx % 4];
+      timerIdx += 1;
+      const hoursMs = rule.hours * 3600 * 1000;
+      const startedAt = new Date(Date.now() - (hoursMs * consumedPct) / 100);
+      const dueAt = new Date(startedAt.getTime() + hoursMs);
+      await prisma.slaTimer.create({
+        data: { caseId: created.id, ruleId: rule.id, startedAt, dueAt, status: 'RUNNING' },
+      });
+    }
   }
 
   console.log('Seed OK:');
