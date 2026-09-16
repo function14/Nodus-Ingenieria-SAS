@@ -7,6 +7,7 @@ import { companiesRouter } from './companies';
 import { postulationsRouter } from './postulations';
 import { dashboardRouter } from './dashboard';
 import { slaRouter } from './sla';
+import { workflowRouter } from './workflow';
 
 export const appRouter = router({
   cases: casesRouter,
@@ -17,6 +18,7 @@ export const appRouter = router({
   postulations: postulationsRouter,
   dashboard: dashboardRouter,
   sla: slaRouter,
+  workflow: workflowRouter,
 });
 
 export type AppRouter = typeof appRouter;

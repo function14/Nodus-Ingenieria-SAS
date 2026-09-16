@@ -11,6 +11,7 @@ import {
   Building2,
   Users,
   ScrollText,
+  Workflow,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { sidebarItems, navItems, roleNav, type Role } from '@/lib/constants';
@@ -25,6 +26,7 @@ const iconMap: Record<string, React.ElementType> = {
   Building2,
   Users,
   ScrollText,
+  Workflow,
 };
 
 export function AppShell({ children }: { children: React.ReactNode }) {

@@ -28,13 +28,14 @@ export const sidebarItems = [
   { label: 'Empresas', href: '/empresas', icon: 'Building2' },
   { label: 'Consultores', href: '/consultores', icon: 'Users' },
   { label: 'Bitácora', href: '/bitacora', icon: 'ScrollText' },
+  { label: 'Workflow', href: '/workflow', icon: 'Workflow' },
   { label: 'SLA & Alertas', href: '/alertas', icon: 'Bell' },
 ];
 
 // Rutas visibles por rol (vista diferenciada, D9).
 export const roleNav: Record<Role, string[]> = {
-  advisory: ['/', '/casos', '/bolsa', '/empresas', '/consultores', '/bitacora', '/alertas', '/perfil'],
-  admin: ['/', '/casos', '/bolsa', '/empresas', '/consultores', '/bitacora', '/alertas', '/perfil'],
+  advisory: ['/', '/casos', '/bolsa', '/empresas', '/consultores', '/bitacora', '/workflow', '/alertas', '/perfil'],
+  admin: ['/', '/casos', '/bolsa', '/empresas', '/consultores', '/bitacora', '/workflow', '/alertas', '/perfil'],
   consultor: ['/casos', '/bolsa', '/alertas', '/perfil'],
   mipyme: ['/casos', '/alertas', '/perfil'],
 };
