@@ -30,3 +30,11 @@ export const sidebarItems = [
   { label: 'Bitácora', href: '/bitacora', icon: 'ScrollText' },
   { label: 'SLA & Alertas', href: '/alertas', icon: 'Bell' },
 ];
+
+// Rutas visibles por rol (vista diferenciada, D9).
+export const roleNav: Record<Role, string[]> = {
+  advisory: ['/', '/casos', '/bolsa', '/empresas', '/consultores', '/bitacora', '/alertas', '/perfil'],
+  admin: ['/', '/casos', '/bolsa', '/empresas', '/consultores', '/bitacora', '/alertas', '/perfil'],
+  consultor: ['/casos', '/bolsa', '/alertas', '/perfil'],
+  mipyme: ['/casos', '/alertas', '/perfil'],
+};

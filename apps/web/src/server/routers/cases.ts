@@ -27,15 +27,21 @@ export const casesRouter = router({
       include: { company: true, currentState: true, assignedUser: true },
       orderBy: { updatedAt: 'desc' },
     });
-    return rows.map((c) => ({
-      id: c.id,
-      humanId: c.humanId,
-      title: c.title,
-      company: c.company.name,
-      state: { code: c.currentState.code, name: c.currentState.name, color: c.currentState.color },
-      assignee: c.assignedUser?.name ?? null,
-      updatedAt: c.updatedAt,
-    }));
+    // D9: al consultor se le enmascara la info del cliente salvo en casos asignados a el.
+    const isConsultor = ctx.user.role === 'consultor';
+    return rows.map((c) => {
+      const masked = isConsultor && c.assignedUserId !== ctx.user.id;
+      return {
+        id: c.id,
+        humanId: c.humanId,
+        title: masked ? 'Caso reservado' : c.title,
+        company: masked ? 'Empresa reservada' : c.company.name,
+        state: { code: c.currentState.code, name: c.currentState.name, color: c.currentState.color },
+        assignee: c.assignedUser?.name ?? null,
+        updatedAt: c.updatedAt,
+        masked,
+      };
+    });
   }),
 
   byId: protectedProcedure.input(caseByIdInputSchema).query(async ({ ctx, input }) => {

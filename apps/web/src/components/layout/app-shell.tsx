@@ -12,7 +12,8 @@ import {
   Users,
   ScrollText,
 } from 'lucide-react';
-import { sidebarItems, navItems } from '@/lib/constants';
+import { useSession } from 'next-auth/react';
+import { sidebarItems, navItems, roleNav, type Role } from '@/lib/constants';
 import { RoleSwitcher } from '@/components/ui/role-switcher';
 
 const iconMap: Record<string, React.ElementType> = {
@@ -28,9 +29,16 @@ const iconMap: Record<string, React.ElementType> = {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const role = session?.user?.role as Role | undefined;
 
   // La pantalla de login se muestra sin el shell (sidebar / bottom tabs).
   if (pathname === '/login') return <>{children}</>;
+
+  // Vista por rol (D9): cada rol ve solo sus modulos.
+  const allowed = role ? roleNav[role] : null;
+  const sidebar = allowed ? sidebarItems.filter((i) => allowed.includes(i.href)) : sidebarItems;
+  const tabs = allowed ? navItems.filter((i) => allowed.includes(i.href)) : navItems;
 
   return (
     <div className="flex h-full min-h-screen">
@@ -44,7 +52,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <RoleSwitcher />
         <nav aria-label="Navegación principal" className="flex flex-col gap-1 mt-4">
-          {sidebarItems.map((item) => {
+          {sidebar.map((item) => {
             const Icon = iconMap[item.icon] ?? LayoutDashboard;
             const active = pathname === item.href;
             return (
@@ -87,7 +95,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           aria-label="Navegación inferior"
           className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-surface flex lg:hidden safe-area-pb"
         >
-          {navItems.map((item) => {
+          {tabs.map((item) => {
             const Icon = iconMap[item.icon] ?? LayoutDashboard;
             const active = pathname === item.href;
             return (

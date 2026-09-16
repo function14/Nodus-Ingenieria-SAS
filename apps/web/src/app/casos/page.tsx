@@ -57,7 +57,15 @@ export default function CasosPage() {
                           {c.humanId}
                         </Link>
                       </td>
-                      <td className="py-2 pr-3">{c.company}</td>
+                      <td className="py-2 pr-3">
+                        {c.masked ? (
+                          <span className="italic text-ink-muted" title="Datos reservados hasta la asignación">
+                            🔒 {c.company}
+                          </span>
+                        ) : (
+                          c.company
+                        )}
+                      </td>
                       <td className="py-2 pr-3">
                         <span className="inline-flex items-center gap-1.5 text-xs font-medium">
                           <span
