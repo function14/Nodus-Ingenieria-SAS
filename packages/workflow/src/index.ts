@@ -173,7 +173,7 @@ export async function processOutbox(tenantId: string): Promise<number> {
   let processed = 0;
   for (const event of pending) {
     await prisma.$transaction(async (tx) => {
-      if (event.type === 'CASE_TRANSITIONED') {
+      if (event.type === 'CASE_TRANSITIONED' || event.type === 'CASE_CREATED') {
         const p = event.payload as unknown as TransitionedPayload;
 
         // detener el timer activo del caso
@@ -194,12 +194,13 @@ export async function processOutbox(tenantId: string): Promise<number> {
 
         // notificacion in-app
         const kase = await tx.case.findUnique({ where: { id: p.caseId } });
+        const verb = event.type === 'CASE_CREATED' ? 'creado en' : 'paso a';
         await tx.notification.create({
           data: {
             tenantId,
             caseId: p.caseId,
-            type: 'CASE_TRANSITIONED',
-            message: 'Caso ' + (kase?.humanId ?? p.caseId) + ' paso a ' + p.to,
+            type: event.type,
+            message: 'Caso ' + (kase?.humanId ?? p.caseId) + ' ' + verb + ' ' + p.to,
           },
         });
       }

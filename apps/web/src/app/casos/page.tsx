@@ -9,7 +9,15 @@ export default function CasosPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-[family-name:var(--font-display)] font-bold">Casos</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-[family-name:var(--font-display)] font-bold">Casos</h1>
+        <Link
+          href="/casos/nuevo"
+          className="rounded-lg bg-primary-deep text-white text-sm font-medium px-3 py-2 shadow-offset-sm transition-transform active:scale-[0.98]"
+        >
+          + Nuevo caso
+        </Link>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Casos en curso · desde PostgreSQL</CardTitle>

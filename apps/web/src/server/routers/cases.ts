@@ -1,5 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
+import { computeRowHash } from '@nodus/db';
+import { validateSubmission } from '@nodus/forms';
 import { caseByIdInputSchema, caseListInputSchema } from '@nodus/schemas';
 import { executeTransition, processOutbox, WorkflowError } from '@nodus/workflow';
 import { protectedProcedure, router } from '../trpc';
@@ -44,6 +46,10 @@ export const casesRouter = router({
         currentState: true,
         assignedUser: true,
         auditLogs: { orderBy: { seq: 'asc' }, include: { actor: true } },
+        submissions: {
+          orderBy: { createdAt: 'desc' },
+          include: { templateVersion: { include: { template: true } } },
+        },
       },
     });
     if (!c) throw new TRPCError({ code: 'NOT_FOUND' });
@@ -91,5 +97,113 @@ export const casesRouter = router({
         }
         throw e;
       }
+    }),
+
+  // Apertura del caso (T1) - Forms-as-Data: valida contra el JSON Schema, crea el
+  // caso en el estado inicial + submission versionada + bitacora genesis encadenada.
+  create: protectedProcedure
+    .input(
+      z.object({
+        companyId: z.string().min(1),
+        data: z.record(z.string(), z.unknown()),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tv = await ctx.prisma.templateVersion.findFirst({
+        where: { template: { code: 'T1' }, isActive: true },
+        orderBy: { version: 'desc' },
+      });
+      if (!tv) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Plantilla T1 no encontrada' });
+
+      const check = validateSubmission(tv.jsonSchema, input.data);
+      if (!check.valid) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: check.errors.join('; ') });
+      }
+
+      const company = await ctx.prisma.company.findFirst({
+        where: { id: input.companyId, tenantId: ctx.user.tenantId },
+        select: { id: true },
+      });
+      if (!company) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Empresa invalida' });
+
+      const initial = await ctx.prisma.caseState.findFirst({ where: { isInitial: true } });
+      if (!initial) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Sin estado inicial' });
+
+      const result = await ctx.prisma.$transaction(async (tx) => {
+        const last = await tx.case.findFirst({
+          where: { tenantId: ctx.user.tenantId },
+          orderBy: { humanId: 'desc' },
+          select: { humanId: true },
+        });
+        const lastNum = last ? parseInt(last.humanId.split('-').pop() ?? '0', 10) : 0;
+        const humanId = `NOD-2026-${String(lastNum + 1).padStart(3, '0')}`;
+        const titulo = typeof input.data.titulo === 'string' ? input.data.titulo : humanId;
+
+        const created = await tx.case.create({
+          data: {
+            tenantId: ctx.user.tenantId,
+            humanId,
+            title: titulo,
+            companyId: input.companyId,
+            currentStateId: initial.id,
+          },
+        });
+
+        await tx.formSubmission.create({
+          data: {
+            templateVersionId: tv.id,
+            caseId: created.id,
+            version: 1,
+            data: input.data as object,
+            submittedById: ctx.user.id,
+          },
+        });
+
+        const lastLog = await tx.auditLog.findFirst({
+          where: { tenantId: ctx.user.tenantId },
+          orderBy: { seq: 'desc' },
+          select: { seq: true, rowHash: true },
+        });
+        const seq = (lastLog?.seq ?? 0) + 1;
+        const rec = {
+          seq,
+          action: 'CASO_CREADO',
+          entityType: 'Case',
+          entityId: created.id,
+          fromState: null as string | null,
+          toState: initial.code,
+          payload: { humanId, template: 'T1' } as unknown,
+        };
+        const rowHash = computeRowHash(lastLog?.rowHash ?? null, rec);
+        await tx.auditLog.create({
+          data: {
+            tenantId: ctx.user.tenantId,
+            seq,
+            caseId: created.id,
+            actorId: ctx.user.id,
+            action: rec.action,
+            entityType: rec.entityType,
+            entityId: rec.entityId,
+            fromState: rec.fromState,
+            toState: rec.toState,
+            payload: rec.payload as object,
+            prevHash: lastLog?.rowHash ?? null,
+            rowHash,
+          },
+        });
+
+        await tx.domainEvent.create({
+          data: {
+            tenantId: ctx.user.tenantId,
+            type: 'CASE_CREATED',
+            payload: { caseId: created.id, humanId, to: initial.code },
+          },
+        });
+
+        return { id: created.id, humanId };
+      });
+
+      await processOutbox(ctx.user.tenantId);
+      return result;
     }),
 });

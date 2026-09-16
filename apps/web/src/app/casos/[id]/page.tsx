@@ -100,6 +100,30 @@ export default function CaseDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Datos de apertura (submission de plantilla) */}
+      {c.submissions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Datos de apertura · {c.submissions[0].templateVersion.template.code} v
+              {c.submissions[0].templateVersion.version}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="flex flex-col gap-1.5 text-sm">
+              {Object.entries((c.submissions[0].data ?? {}) as Record<string, unknown>).map(
+                ([k, v]) => (
+                  <li key={k} className="flex gap-3">
+                    <span className="text-ink-muted capitalize w-28 shrink-0">{k}</span>
+                    <span>{String(v)}</span>
+                  </li>
+                ),
+              )}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Expediente / bitacora */}
       <Card>
         <CardHeader>
