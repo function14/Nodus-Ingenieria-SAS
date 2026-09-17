@@ -2,17 +2,14 @@ packages:
   - "apps/*"
   - "packages/*"
 
+# Dependencias autorizadas a ejecutar sus scripts de instalacion (binarios nativos).
+# pnpm 11 usa "allowBuilds"; sin esto una instalacion limpia falla con
+# ERR_PNPM_IGNORED_BUILDS y cualquier `pnpm run/exec` posterior se cae.
 allowBuilds:
-  '@prisma/client': set this to true or false
-  '@prisma/engines': set this to true or false
-  esbuild: set this to true or false
-  prisma: set this to true or false
-
-onlyBuiltDependencies:
-  - "@tailwindcss/oxide"
-  - unrs-resolver
-  - sharp
-  - "@prisma/client"
-  - "@prisma/engines"
-  - prisma
-  - esbuild
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@tailwindcss/oxide': true
+  esbuild: true
+  prisma: true
+  sharp: true
+  unrs-resolver: true
