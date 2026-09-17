@@ -33,3 +33,7 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# Reportes locales de QA / auditoria (no se versionan)
+/qa-report-*.md
+/audit-report-*.md
