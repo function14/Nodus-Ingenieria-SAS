@@ -37,3 +37,5 @@ yarn-error.log*
 # Reportes locales de QA / auditoria (no se versionan)
 /qa-report-*.md
 /audit-report-*.md
+/PRUEBAS.md
+/ENTREGA.md

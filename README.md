@@ -56,5 +56,3 @@ pnpm --filter @nodus/workflow run smoke   # motor: transiciones + guardas + cade
 1. **Workflow / SLA / plantillas como datos** (no `if/else` hardcodeado) — ver `/workflow`.
 2. **Bitácora con hash-chain** verificable (botón "Verificar integridad" en el expediente).
 3. **Command Center** (PMO) + expediente-timeline + Forms-as-Data (T1 desde JSON Schema).
-
-Detalle de alcance, decisiones y riesgos en **[ENTREGA.md](./ENTREGA.md)**.
