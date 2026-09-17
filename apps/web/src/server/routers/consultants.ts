@@ -1,7 +1,7 @@
-import { protectedProcedure, router } from '../trpc';
+import { resourceProcedure, router } from '../trpc';
 
 export const consultantsRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
+  list: resourceProcedure('consultantDirectory').query(async ({ ctx }) => {
     const rows = await ctx.prisma.user.findMany({
       where: { tenantId: ctx.user.tenantId, role: { code: 'consultor' } },
       include: { _count: { select: { assignedCases: true, postulations: true } } },

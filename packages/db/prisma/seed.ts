@@ -156,6 +156,12 @@ async function main() {
     companies[name] = c.id;
   }
 
+  // El usuario mipyme pertenece a una empresa: acota sus notificaciones (RBAC).
+  await prisma.user.update({
+    where: { id: users['mipyme'] },
+    data: { companyId: companies['RetailModa'] },
+  });
+
   const caseData = [
     { humanId: 'NOD-2026-001', company: 'FoodTech SAS', state: 'CERRADO', assignee: 'consultor' },
     { humanId: 'NOD-2026-002', company: 'RetailModa', state: 'EN_EJECUCION', assignee: 'consultor' },
@@ -169,6 +175,7 @@ async function main() {
   let seq = 0;
   let prevHash: string | null = null;
   let timerIdx = 0;
+  const createdCases: Record<string, string> = {};
   for (const c of caseData) {
     const created = await prisma.case.create({
       data: {
@@ -180,6 +187,7 @@ async function main() {
         assignedUserId: c.assignee ? users[c.assignee] : null,
       },
     });
+    createdCases[c.humanId] = created.id;
     seq += 1;
     const rec = {
       seq,
@@ -222,6 +230,32 @@ async function main() {
       });
     }
   }
+
+  // Notificaciones de distinto alcance, para que el scoping por rol sea visible:
+  // - N1: caso de RetailModa (asignado al consultor) -> lo ven consultor y mipyme.
+  // - N2: caso sin asignar -> solo PMO/Admin.
+  // - N3: sin caso (interno de SLA) -> solo PMO/Admin.
+  await prisma.notification.createMany({
+    data: [
+      {
+        tenantId: tenant.id,
+        caseId: createdCases['NOD-2026-002'],
+        type: 'CASE_TRANSITIONED',
+        message: 'Caso NOD-2026-002 paso a EN_EJECUCION',
+      },
+      {
+        tenantId: tenant.id,
+        caseId: createdCases['NOD-2026-005'],
+        type: 'CASE_TRANSITIONED',
+        message: 'Caso NOD-2026-005 paso a CLASIFICADO',
+      },
+      {
+        tenantId: tenant.id,
+        type: 'SLA_WARN',
+        message: 'Revision interna de SLA pendiente',
+      },
+    ],
+  });
 
   console.log('Seed OK:');
   console.log('  tenant:', tenant.slug, '(' + tenant.name + ')');

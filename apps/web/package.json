@@ -25,7 +25,8 @@
     "react-dom": "19.2.8",
     "superjson": "^2",
     "zod": "^4",
-    "@nodus/forms": "workspace:*"
+    "@nodus/forms": "workspace:*",
+    "@nodus/rbac": "workspace:*"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.7",
@@ -36,6 +37,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.25",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3"
   }
 }

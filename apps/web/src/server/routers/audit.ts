@@ -1,8 +1,8 @@
 import { computeRowHash } from '@nodus/db';
-import { protectedProcedure, router } from '../trpc';
+import { resourceProcedure, router } from '../trpc';
 
 export const auditRouter = router({
-  verifyChain: protectedProcedure.query(async ({ ctx }) => {
+  verifyChain: resourceProcedure('auditLedger').query(async ({ ctx }) => {
     const rows = await ctx.prisma.auditLog.findMany({
       where: { tenantId: ctx.user.tenantId },
       orderBy: { seq: 'asc' },
@@ -26,7 +26,7 @@ export const auditRouter = router({
     return { valid: true, brokenSeq: null as number | null, count: rows.length };
   }),
 
-  list: protectedProcedure.query(async ({ ctx }) => {
+  list: resourceProcedure('auditLedger').query(async ({ ctx }) => {
     const rows = await ctx.prisma.auditLog.findMany({
       where: { tenantId: ctx.user.tenantId },
       orderBy: { seq: 'desc' },

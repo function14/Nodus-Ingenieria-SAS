@@ -8,7 +8,8 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "start": "turbo run start",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {
     "turbo": "2.10.12",

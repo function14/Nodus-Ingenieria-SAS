@@ -18,6 +18,7 @@ packages/
   schemas/            contratos Zod compartidos
   workflow/           motor config-driven (executeTransition, processOutbox, sweepSla)
   forms/              validador JSON Schema (ajv) + derivación de campos (D6)
+  rbac/               capa única de autorización: permisos, masking y nav (D9)
 infra/                Terraform (Neon + Vercel)
 docker/               Dockerfiles (web/worker)
 docker-compose.yml    Postgres + Redis + MinIO (dev)
@@ -45,8 +46,9 @@ El botón **"Ver como"** en el shell re-autentica como el usuario demo de cada r
 ```bash
 pnpm build      # turbo: build de todos los paquetes
 pnpm lint       # turbo: eslint
-pnpm test       # vitest (unit): validador D6 + hash-chain
-# integración (requieren Postgres arriba):
+pnpm test       # vitest (unit): reglas de @nodus/rbac + validador D6 + hash-chain
+# integración (requieren Postgres arriba + seed):
+pnpm test:integration                     # autorización por rol contra los resolvers reales
 pnpm --filter @nodus/workflow run smoke   # motor: transiciones + guardas + cadena
 ```
 

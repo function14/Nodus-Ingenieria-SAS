@@ -14,7 +14,8 @@ import {
   Workflow,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { sidebarItems, navItems, roleNav, type Role } from '@/lib/constants';
+import { allowedRoutes } from '@nodus/rbac';
+import { sidebarItems, navItems } from '@/lib/constants';
 import { RoleSwitcher } from '@/components/ui/role-switcher';
 
 const iconMap: Record<string, React.ElementType> = {
@@ -32,13 +33,13 @@ const iconMap: Record<string, React.ElementType> = {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const role = session?.user?.role as Role | undefined;
+  const role = session?.user?.role;
 
   // La pantalla de login se muestra sin el shell (sidebar / bottom tabs).
   if (pathname === '/login') return <>{children}</>;
 
-  // Vista por rol (D9): cada rol ve solo sus modulos.
-  const allowed = role ? roleNav[role] : null;
+  // El nav es un REFLEJO de la capa de permisos (@nodus/rbac), no su fuente.
+  const allowed = role ? allowedRoutes(role) : null;
   const sidebar = allowed ? sidebarItems.filter((i) => allowed.includes(i.href)) : sidebarItems;
   const tabs = allowed ? navItems.filter((i) => allowed.includes(i.href)) : navItems;
 

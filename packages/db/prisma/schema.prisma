@@ -39,6 +39,7 @@ model User {
   name         String
   passwordHash String
   roleId       String
+  companyId    String?
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
@@ -49,6 +50,7 @@ model User {
   assignedCases Case[]           @relation("CaseAssignee")
   notifications Notification[]
   postulations  Postulation[]
+  company       Company?         @relation(fields: [companyId], references: [id])
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -118,6 +120,7 @@ model Company {
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   cases  Case[]
+  users  User[]
 
   @@index([tenantId])
 }

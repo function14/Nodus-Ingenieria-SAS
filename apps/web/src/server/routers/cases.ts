@@ -2,9 +2,10 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { computeRowHash } from '@nodus/db';
 import { validateSubmission } from '@nodus/forms';
+import { applyCaseMask } from '@nodus/rbac';
 import { caseByIdInputSchema, caseListInputSchema } from '@nodus/schemas';
 import { executeTransition, processOutbox, WorkflowError } from '@nodus/workflow';
-import { protectedProcedure, router } from '../trpc';
+import { actionProcedure, resourceProcedure, router } from '../trpc';
 
 const workflowCodeToTrpc: Record<
   string,
@@ -18,51 +19,72 @@ const workflowCodeToTrpc: Record<
 };
 
 export const casesRouter = router({
-  list: protectedProcedure.input(caseListInputSchema).query(async ({ ctx, input }) => {
-    const rows = await ctx.prisma.case.findMany({
-      where: {
-        tenantId: ctx.user.tenantId,
-        ...(input?.stateCode ? { currentState: { code: input.stateCode } } : {}),
-      },
-      include: { company: true, currentState: true, assignedUser: true },
-      orderBy: { updatedAt: 'desc' },
-    });
-    // D9: al consultor se le enmascara la info del cliente salvo en casos asignados a el.
-    const isConsultor = ctx.user.role === 'consultor';
-    return rows.map((c) => {
-      const masked = isConsultor && c.assignedUserId !== ctx.user.id;
-      return {
-        id: c.id,
-        humanId: c.humanId,
-        title: masked ? 'Caso reservado' : c.title,
-        company: masked ? 'Empresa reservada' : c.company.name,
-        state: { code: c.currentState.code, name: c.currentState.name, color: c.currentState.color },
-        assignee: c.assignedUser?.name ?? null,
-        updatedAt: c.updatedAt,
-        masked,
-      };
-    });
-  }),
-
-  byId: protectedProcedure.input(caseByIdInputSchema).query(async ({ ctx, input }) => {
-    const c = await ctx.prisma.case.findFirst({
-      where: { id: input.id, tenantId: ctx.user.tenantId },
-      include: {
-        company: true,
-        currentState: true,
-        assignedUser: true,
-        auditLogs: { orderBy: { seq: 'asc' }, include: { actor: true } },
-        submissions: {
-          orderBy: { createdAt: 'desc' },
-          include: { templateVersion: { include: { template: true } } },
+  list: resourceProcedure('cases')
+    .input(caseListInputSchema)
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.prisma.case.findMany({
+        where: {
+          tenantId: ctx.user.tenantId,
+          ...(input?.stateCode ? { currentState: { code: input.stateCode } } : {}),
         },
-      },
-    });
-    if (!c) throw new TRPCError({ code: 'NOT_FOUND' });
-    return c;
-  }),
+        include: { company: true, currentState: true, assignedUser: true },
+        orderBy: { updatedAt: 'desc' },
+      });
+      // El masking lo decide @nodus/rbac (misma regla que el detalle).
+      return rows.map((c) => {
+        const view = applyCaseMask(ctx.user, c, { title: c.title, company: c.company.name });
+        return {
+          id: c.id,
+          humanId: c.humanId,
+          title: view.title,
+          company: view.company,
+          state: {
+            code: c.currentState.code,
+            name: c.currentState.name,
+            color: c.currentState.color,
+          },
+          assignee: c.assignedUser?.name ?? null,
+          updatedAt: c.updatedAt,
+          masked: view.masked,
+        };
+      });
+    }),
 
-  availableTransitions: protectedProcedure
+  byId: resourceProcedure('cases')
+    .input(caseByIdInputSchema)
+    .query(async ({ ctx, input }) => {
+      const c = await ctx.prisma.case.findFirst({
+        where: { id: input.id, tenantId: ctx.user.tenantId },
+        include: {
+          company: true,
+          currentState: true,
+          assignedUser: true,
+          auditLogs: { orderBy: { seq: 'asc' }, include: { actor: true } },
+          submissions: {
+            orderBy: { createdAt: 'desc' },
+            include: { templateVersion: { include: { template: true } } },
+          },
+        },
+      });
+      if (!c) throw new TRPCError({ code: 'NOT_FOUND' });
+
+      // MISMA regla de masking que la lista (fuente unica: @nodus/rbac).
+      const view = applyCaseMask(ctx.user, c, { title: c.title, company: c.company.name });
+      return {
+        ...c,
+        title: view.title,
+        company: { ...c.company, name: view.company },
+        masked: view.masked,
+        // Canales laterales: si el caso esta enmascarado no se entregan los datos
+        // del cliente por la submission ni por el payload de la bitacora.
+        submissions: view.masked ? [] : c.submissions,
+        auditLogs: view.masked
+          ? c.auditLogs.map((log) => ({ ...log, payload: {} }))
+          : c.auditLogs,
+      };
+    }),
+
+  availableTransitions: resourceProcedure('cases')
     .input(z.object({ caseId: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
       const c = await ctx.prisma.case.findFirst({
@@ -74,12 +96,13 @@ export const casesRouter = router({
         where: { fromStateId: c.currentStateId },
         include: { toState: true },
       });
+      // Autorizacion data-driven: la fuente es CaseTransition.allowedRoles.
       return transitions
         .filter((t) => t.allowedRoles.includes(ctx.user.role))
         .map((t) => ({ code: t.code, name: t.name, to: t.toState.name }));
     }),
 
-  transition: protectedProcedure
+  transition: resourceProcedure('cases')
     .input(
       z.object({
         caseId: z.string().min(1),
@@ -105,13 +128,9 @@ export const casesRouter = router({
       }
     }),
 
-  // Advisory asigna un consultor postulado: fija responsable + ejecuta 'asignar'.
-  assign: protectedProcedure
+  assign: actionProcedure('case.assign')
     .input(z.object({ caseId: z.string().min(1), consultorId: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== 'advisory') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Advisory/PMO puede asignar' });
-      }
       const c = await ctx.prisma.case.findFirst({
         where: { id: input.caseId, tenantId: ctx.user.tenantId },
         include: { currentState: true },
@@ -152,7 +171,7 @@ export const casesRouter = router({
 
   // Apertura del caso (T1) - Forms-as-Data: valida contra el JSON Schema, crea el
   // caso en el estado inicial + submission versionada + bitacora genesis encadenada.
-  create: protectedProcedure
+  create: actionProcedure('case.create')
     .input(
       z.object({
         companyId: z.string().min(1),

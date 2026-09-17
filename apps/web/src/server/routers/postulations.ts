@@ -1,15 +1,11 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { protectedProcedure, router } from '../trpc';
+import { actionProcedure, resourceProcedure, router } from '../trpc';
 
 export const postulationsRouter = router({
-  // Consultor se postula a un caso en bolsa (CLASIFICADO)
-  postular: protectedProcedure
+  postular: actionProcedure('postulation.create')
     .input(z.object({ caseId: z.string().min(1), note: z.string().max(500).optional() }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== 'consultor') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo consultores pueden postularse' });
-      }
       const c = await ctx.prisma.case.findFirst({
         where: { id: input.caseId, tenantId: ctx.user.tenantId },
         include: { currentState: true },
@@ -33,8 +29,7 @@ export const postulationsRouter = router({
       });
     }),
 
-  // Postulantes de un caso (advisory)
-  listForCase: protectedProcedure
+  listForCase: resourceProcedure('bolsa')
     .input(z.object({ caseId: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
       const rows = await ctx.prisma.postulation.findMany({
@@ -52,8 +47,7 @@ export const postulationsRouter = router({
       }));
     }),
 
-  // Casos en bolsa (CLASIFICADO) para el consultor
-  bolsa: protectedProcedure.query(async ({ ctx }) => {
+  bolsa: resourceProcedure('bolsa').query(async ({ ctx }) => {
     const cases = await ctx.prisma.case.findMany({
       where: { tenantId: ctx.user.tenantId, currentState: { code: 'CLASIFICADO' } },
       include: { company: true, postulations: true },

@@ -32,10 +32,6 @@ export const sidebarItems = [
   { label: 'SLA & Alertas', href: '/alertas', icon: 'Bell' },
 ];
 
-// Rutas visibles por rol (vista diferenciada, D9).
-export const roleNav: Record<Role, string[]> = {
-  advisory: ['/', '/casos', '/bolsa', '/empresas', '/consultores', '/bitacora', '/workflow', '/alertas', '/perfil'],
-  admin: ['/', '/casos', '/bolsa', '/empresas', '/consultores', '/bitacora', '/workflow', '/alertas', '/perfil'],
-  consultor: ['/casos', '/bolsa', '/alertas', '/perfil'],
-  mipyme: ['/casos', '/alertas', '/perfil'],
-};
+// Las rutas visibles por rol YA NO se definen aquí: se derivan de la tabla de
+// permisos en @nodus/rbac (allowedRoutes), para que ocultar un link y bloquear
+// el dato no puedan desincronizarse.

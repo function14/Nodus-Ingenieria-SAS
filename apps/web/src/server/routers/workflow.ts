@@ -1,8 +1,8 @@
-import { protectedProcedure, router } from '../trpc';
+import { resourceProcedure, router } from '../trpc';
 
 // Expone la maquina de estados (workflow as data) para el visor.
 export const workflowRouter = router({
-  graph: protectedProcedure.query(async ({ ctx }) => {
+  graph: resourceProcedure('workflowDefinition').query(async ({ ctx }) => {
     const [states, transitions] = await Promise.all([
       ctx.prisma.caseState.findMany({ orderBy: { order: 'asc' } }),
       ctx.prisma.caseTransition.findMany({ include: { fromState: true, toState: true } }),

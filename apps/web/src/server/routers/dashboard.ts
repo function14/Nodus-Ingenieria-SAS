@@ -1,8 +1,8 @@
-import { protectedProcedure, router } from '../trpc';
+import { resourceProcedure, router } from '../trpc';
 
 // Proyeccion del Command Center PMO calculada desde Postgres (no mock).
 export const dashboardRouter = router({
-  pmo: protectedProcedure.query(async ({ ctx }) => {
+  pmo: resourceProcedure('dashboard').query(async ({ ctx }) => {
     const tenantId = ctx.user.tenantId;
     const [states, cases, timers] = await Promise.all([
       ctx.prisma.caseState.findMany({ orderBy: { order: 'asc' } }),

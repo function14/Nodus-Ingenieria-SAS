@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession, signIn } from 'next-auth/react';
+import { trpc } from '@/lib/trpc/client';
 import { roles } from '@/lib/constants';
 
 // "Ver como" (demo): re-autentica como el usuario demo del rol elegido.
@@ -10,6 +11,7 @@ import { roles } from '@/lib/constants';
 export function RoleSwitcher() {
   const { data: session } = useSession();
   const router = useRouter();
+  const utils = trpc.useUtils();
   const active = session?.user?.role;
   const [switching, setSwitching] = useState(false);
 
@@ -21,8 +23,11 @@ export function RoleSwitcher() {
       password: 'demo1234',
       redirect: false,
     });
-    setSwitching(false);
+    // H1: al cambiar de rol se descarta el cache del rol anterior para que la
+    // UI no muestre datos del scope previo mientras refresca.
+    await utils.invalidate();
     router.refresh();
+    setSwitching(false);
   }
 
   return (
