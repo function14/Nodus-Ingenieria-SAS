@@ -30,6 +30,7 @@ async function main() {
   await prisma.template.deleteMany();
   await prisma.caseTransition.deleteMany();
   await prisma.caseState.deleteMany();
+  await prisma.communicationRule.deleteMany();
   await prisma.lovItem.deleteMany();
   await prisma.lovGroup.deleteMany();
   await prisma.user.deleteMany();
@@ -103,15 +104,15 @@ async function main() {
   }
 
   const transitions = [
-    { code: 'crear_revision', name: 'Enviar a revision', from: 'CREADO', to: 'EN_REVISION', roles: ['advisory', 'system'] },
-    { code: 'clasificar', name: 'Clasificar', from: 'EN_REVISION', to: 'CLASIFICADO', roles: ['advisory'] },
-    { code: 'asignar', name: 'Asignar consultor', from: 'CLASIFICADO', to: 'ASIGNADO', roles: ['advisory'] },
-    { code: 'autorizar_ejecucion', name: 'Autorizar ejecucion', from: 'ASIGNADO', to: 'EN_EJECUCION', roles: ['advisory'] },
-    { code: 'cerrar', name: 'Cerrar / aceptar cierre', from: 'EN_EJECUCION', to: 'CERRADO', roles: ['advisory', 'mipyme'] },
+    { code: 'crear_revision', name: 'Enviar a revision', from: 'CREADO', to: 'EN_REVISION', roles: ['advisory', 'system'], effects: { commEvents: ['caso_en_revision'] } },
+    { code: 'clasificar', name: 'Clasificar', from: 'EN_REVISION', to: 'CLASIFICADO', roles: ['advisory'], effects: { commEvents: ['caso_habilitado_postulacion', 'oportunidad_publicada'] } },
+    { code: 'asignar', name: 'Asignar consultor', from: 'CLASIFICADO', to: 'ASIGNADO', roles: ['advisory'], effects: { commEvents: ['consultor_asignado'] } },
+    { code: 'autorizar_ejecucion', name: 'Autorizar ejecucion', from: 'ASIGNADO', to: 'EN_EJECUCION', roles: ['advisory'], effects: { commEvents: ['inicio_ejecucion'] } },
+    { code: 'cerrar', name: 'Cerrar / aceptar cierre', from: 'EN_EJECUCION', to: 'CERRADO', roles: ['advisory', 'mipyme'], effects: { commEvents: ['cierre_caso'] } },
   ];
   for (const t of transitions) {
     await prisma.caseTransition.create({
-      data: { code: t.code, name: t.name, fromStateId: states[t.from], toStateId: states[t.to], allowedRoles: t.roles },
+      data: { code: t.code, name: t.name, fromStateId: states[t.from], toStateId: states[t.to], allowedRoles: t.roles, effects: t.effects },
     });
   }
 
@@ -133,6 +134,155 @@ async function main() {
       uiSchema: { descripcion: { widget: 'textarea' } },
     },
   });
+
+  // Plantillas de comunicaciones gobernadas (F1): TCOM1-13 viven como DATO
+  // (nunca como literales en el codigo del motor). El motor las renderiza con
+  // las variables del evento.
+  const commTemplates = [
+    {
+      code: 'TCOM1',
+      name: 'Confirmación de recepción del caso',
+      subject: 'Confirmación de recepción — caso {humanId}',
+      body: 'Estimada empresa {empresa}, su caso {humanId} fue recibido correctamente por 911MiPyme y se encuentra en estado {estado}. Puede seguir su avance en la plataforma. — NODUS / 911MiPyme',
+      variables: ['humanId', 'empresa', 'estado'],
+    },
+    {
+      code: 'TCOM2',
+      name: 'Solicitud de información adicional',
+      subject: 'Solicitud de información adicional — caso {humanId}',
+      body: 'Estimada empresa {empresa}, para continuar con el caso {humanId} necesitamos la siguiente información: {solicitud}. Le pedimos responder a la brevedad. — NODUS / 911MiPyme',
+      variables: ['humanId', 'empresa', 'solicitud'],
+    },
+    {
+      code: 'TCOM3',
+      name: 'Caso habilitado para postulación',
+      subject: 'Caso habilitado para postulación — {humanId}',
+      body: 'El caso {humanId} de {empresa} fue clasificado y habilitado para postulación. Estado actual: {estado}.',
+      variables: ['humanId', 'empresa', 'estado'],
+    },
+    {
+      code: 'TCOM4',
+      name: 'Nueva oportunidad disponible',
+      subject: 'Nueva oportunidad disponible — {humanId}',
+      body: 'Consultora o consultor: el caso {humanId} de {empresa} está disponible en la bolsa interna de casos. Si le interesa, puede postularse desde la plataforma antes del cierre de la bolsa.',
+      variables: ['humanId', 'empresa', 'estado'],
+    },
+    {
+      code: 'TCOM5',
+      name: 'Asignación de consultor',
+      subject: 'Asignación de caso — {humanId}',
+      body: 'Le confirmamos la asignación del caso {humanId} ({empresa}). El caso se encuentra en estado {estado}. Conozca los detalles y acuerde los próximos pasos.',
+      variables: ['humanId', 'empresa', 'estado'],
+    },
+    {
+      code: 'TCOM6',
+      name: 'Actualización de propuesta',
+      subject: 'Actualización de propuesta — {humanId}',
+      body: 'La propuesta del caso {humanId} ({empresa}) {hito}. Estado actual del caso: {estado}.',
+      variables: ['humanId', 'empresa', 'estado', 'hito'],
+    },
+    {
+      code: 'TCOM7',
+      name: 'Observaciones a la propuesta',
+      subject: 'Observaciones a propuesta — {humanId}',
+      body: 'La propuesta del caso {humanId} recibió observaciones: {observacion}. Por favor ajústela y registre la nueva versión en la plataforma.',
+      variables: ['humanId', 'empresa', 'observacion'],
+    },
+    {
+      code: 'TCOM8',
+      name: 'Recordatorio de SLA',
+      subject: 'Recordatorio de SLA — caso {humanId}',
+      body: 'Recordatorio: el caso {humanId} en la etapa {etapa} tiene un compromiso de atención antes de {plazo}. Por favor atiéndalo para evitar el escalamiento.',
+      variables: ['humanId', 'empresa', 'etapa', 'plazo', 'estado'],
+    },
+    {
+      code: 'TCOM9',
+      name: 'Alerta de SLA vencido',
+      subject: 'SLA vencido — caso {humanId}',
+      body: 'Alerta: el caso {humanId} en la etapa {etapa} venció su SLA de atención. El caso fue escalado{escalaAviso}. Se requiere acción inmediata del equipo.',
+      variables: ['humanId', 'empresa', 'etapa', 'escalaAviso'],
+    },
+    {
+      code: 'TCOM10',
+      name: 'Inicio de ejecución',
+      subject: 'Inicio de ejecución — caso {humanId}',
+      body: 'El caso {humanId} de {empresa} inició su etapa de ejecución. Estado actual: {estado}.',
+      variables: ['humanId', 'empresa', 'estado'],
+    },
+    {
+      code: 'TCOM11',
+      name: 'Entregable cargado',
+      subject: 'Entregable cargado — caso {humanId}',
+      body: 'Se cargó el entregable {entregable} (versión {version}) del caso {humanId} ({empresa}). El documento queda en revisión de calidad.',
+      variables: ['humanId', 'empresa', 'entregable', 'version'],
+    },
+    {
+      code: 'TCOM12',
+      name: 'Cierre de caso y evaluación',
+      subject: 'Cierre de caso — {humanId}',
+      body: 'El caso {humanId} de {empresa} fue cerrado. Le invitamos a diligenciar la evaluación de la experiencia en la plataforma. Su opinión es valiosa.',
+      variables: ['humanId', 'empresa', 'estado'],
+    },
+    {
+      code: 'TCOM13',
+      name: 'Aviso interno de proceso',
+      subject: 'Aviso de proceso — caso {humanId}',
+      body: 'Aviso interno: el caso {humanId} ({empresa}) registra el evento {evento}. Estado actual: {estado}.',
+      variables: ['humanId', 'empresa', 'evento', 'estado'],
+    },
+  ];
+  for (const tpl of commTemplates) {
+    const t = await prisma.template.create({
+      data: { code: tpl.code, name: tpl.name, kind: 'communication' },
+    });
+    await prisma.templateVersion.create({
+      data: {
+        templateId: t.id,
+        version: 1,
+        jsonSchema: {},
+        subject: tpl.subject,
+        body: tpl.body,
+        variables: tpl.variables,
+      },
+    });
+  }
+
+  // Reglas de comunicacion: evento -> plantilla -> destinatario -> canal.
+  // Quien ve que lo decide RBAC; aqui SOLO se declara la gobernanza por dato.
+  // [eventType, templateCode, recipientRole, channel]
+  const commRules: Array<[string, string, string | null, string]> = [
+    ['caso_creado', 'TCOM1', 'mipyme', 'in_app'],
+    ['caso_en_revision', 'TCOM13', 'advisory', 'in_app'],
+    ['solicitud_aclaracion', 'TCOM2', 'mipyme', 'in_app'],
+    ['caso_habilitado_postulacion', 'TCOM3', 'advisory', 'in_app'],
+    ['oportunidad_publicada', 'TCOM4', 'consultor', 'in_app'],
+    ['postulacion_recibida', 'TCOM13', 'advisory', 'in_app'],
+    ['consultor_asignado', 'TCOM5', 'consultor', 'in_app'],
+    ['consultor_asignado', 'TCOM5', 'mipyme', 'in_app'],
+    ['propuesta_en_diseno', 'TCOM13', 'advisory', 'in_app'],
+    ['observaciones_propuesta', 'TCOM7', 'consultor', 'in_app'],
+    ['propuesta_enviada', 'TCOM6', 'mipyme', 'in_app'],
+    ['propuesta_aceptada', 'TCOM6', 'consultor', 'in_app'],
+    ['propuesta_rechazada', 'TCOM6', 'consultor', 'in_app'],
+    ['contratacion_pendiente', 'TCOM13', 'advisory', 'in_app'],
+    ['contratacion_pendiente', 'TCOM6', 'mipyme', 'in_app'],
+    ['inicio_ejecucion', 'TCOM10', 'mipyme', 'in_app'],
+    ['inicio_ejecucion', 'TCOM10', 'consultor', 'in_app'],
+    ['hito_proximo_a_vencer', 'TCOM8', 'consultor', 'in_app'],
+    ['entregable_cargado', 'TCOM11', 'advisory', 'in_app'],
+    ['entregable_cargado', 'TCOM11', 'mipyme', 'in_app'],
+    ['entregable_en_qa', 'TCOM13', 'advisory', 'in_app'],
+    ['cierre_caso', 'TCOM12', 'mipyme', 'in_app'],
+    ['evaluacion_disponible', 'TCOM12', 'mipyme', 'in_app'],
+    ['sla_warn', 'TCOM8', 'consultor', 'in_app'],
+    ['sla_breached', 'TCOM9', 'advisory', 'in_app'],
+    ['sla_escalado', 'TCOM9', 'advisory', 'in_app'],
+  ];
+  for (const [eventType, templateCode, recipientRole, channel] of commRules) {
+    await prisma.communicationRule.create({
+      data: { eventType, templateCode, recipientRole, channel },
+    });
+  }
 
   const slaData = [
     { stateCode: 'CREADO', hours: 24 },
@@ -242,17 +392,29 @@ async function main() {
         caseId: createdCases['NOD-2026-002'],
         type: 'CASE_TRANSITIONED',
         message: 'Caso NOD-2026-002 paso a EN_EJECUCION',
+        templateCode: 'TCOM10',
+        channel: 'in_app',
+        deliveryStatus: 'sent',
+        sentAt: new Date(),
       },
       {
         tenantId: tenant.id,
         caseId: createdCases['NOD-2026-005'],
         type: 'CASE_TRANSITIONED',
         message: 'Caso NOD-2026-005 paso a CLASIFICADO',
+        templateCode: 'TCOM5',
+        channel: 'in_app',
+        deliveryStatus: 'sent',
+        sentAt: new Date(),
       },
       {
         tenantId: tenant.id,
         type: 'SLA_WARN',
         message: 'Revision interna de SLA pendiente',
+        templateCode: 'TCOM8',
+        channel: 'in_app',
+        deliveryStatus: 'sent',
+        sentAt: new Date(),
       },
     ],
   });
@@ -261,6 +423,7 @@ async function main() {
   console.log('  tenant:', tenant.slug, '(' + tenant.name + ')');
   console.log('  roles:', Object.keys(roles).length, '| usuarios:', Object.keys(users).length);
   console.log('  estados:', stateData.length, '| transiciones:', transitions.length, '| SLA rules:', slaData.length);
+  console.log('  plantillas comunicacion:', commTemplates.length, '| reglas de comunicacion:', commRules.length);
   console.log('  empresas:', companyNames.length, '| casos:', caseData.length);
   console.log('  bitacora hash-chain:', seq, 'registros | ultimo hash:', (prevHash ?? '').slice(0, 16) + '...');
   console.log('  login demo -> advisory@demo.nodus / demo1234 (y consultor@, mipyme@, admin@)');

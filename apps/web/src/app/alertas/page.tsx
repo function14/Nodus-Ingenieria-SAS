@@ -34,8 +34,21 @@ export default function AlertasPage() {
                   <div>
                     <p className="text-sm">{n.message}</p>
                     <p className="text-xs text-ink-muted">
-                      {n.type} · {new Date(n.createdAt).toLocaleString('es-CO')}
+                      {new Date(n.createdAt).toLocaleString('es-CO')}
                     </p>
+                    {n.templateCode && (
+                      <p className="text-xs text-ink-muted">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-surface px-1.5 py-0.5 font-mono">
+                          {n.templateCode}
+                        </span>
+                        <span className="mx-1">·</span>
+                        <span>{n.channel === 'email' ? 'Email' : 'In-app'}</span>
+                        {n.recipientRole && <span> · {n.recipientRole}</span>}
+                        {n.deliveryStatus === 'failed' && (
+                          <span className="text-danger"> · fallo</span>
+                        )}
+                      </p>
+                    )}
                   </div>
                 </li>
               ))}

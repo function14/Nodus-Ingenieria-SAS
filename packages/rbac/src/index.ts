@@ -120,18 +120,24 @@ export function applyCaseMask<T extends MaskableCase>(
 export type NotificationScope =
   /** PMO/Admin: todo el tenant. */
   | { kind: 'all' }
-  /** Consultor: solo lo suyo y lo de los casos que tiene asignados. */
-  | { kind: 'assignedCases' }
-  /** Mipyme: solo lo suyo y lo de los casos de su empresa. */
-  | { kind: 'ownCompany'; companyId: string }
+  /**
+   * Consultor: lo suyo, lo de los casos que tiene asignados, y los avisos
+   * de difusión a su rol (recipientRole='consultor' sin destinatario concreto).
+   */
+  | { kind: 'assignedCases'; role: 'consultor' }
+  /**
+   * Mipyme: lo suyo, lo de los casos de su empresa, y los avisos de difusión
+   * a su rol (recipientRole='mipyme' sin destinatario concreto).
+   */
+  | { kind: 'ownCompany'; companyId: string; role: 'mipyme' }
   /** Sin empresa/rol reconocido: solo lo dirigido explícitamente al usuario. */
   | { kind: 'ownOnly' };
 
 export function notificationScope(actor: Actor): NotificationScope {
   if (actor.role === 'advisory' || actor.role === 'admin') return { kind: 'all' };
-  if (actor.role === 'consultor') return { kind: 'assignedCases' };
+  if (actor.role === 'consultor') return { kind: 'assignedCases', role: 'consultor' };
   if (actor.role === 'mipyme' && actor.companyId) {
-    return { kind: 'ownCompany', companyId: actor.companyId };
+    return { kind: 'ownCompany', companyId: actor.companyId, role: 'mipyme' };
   }
   return { kind: 'ownOnly' };
 }

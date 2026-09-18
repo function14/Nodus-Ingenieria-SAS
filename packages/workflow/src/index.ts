@@ -1,4 +1,5 @@
 import { prisma, computeRowHash } from '@nodus/db';
+import { notify } from '@nodus/notifications';
 
 export type WorkflowErrorCode =
   | 'NOT_FOUND'
@@ -125,6 +126,12 @@ export async function executeTransition(params: {
     });
 
     // --- EVENTO A LA OUTBOX (se consume tras el commit) ---
+    const effects = (transition.effects ?? {}) as { commEvent?: string; commEvents?: string[] };
+    const commEvents = Array.isArray(effects.commEvents)
+      ? effects.commEvents
+      : effects.commEvent
+        ? [effects.commEvent]
+        : [];
     const event = await tx.domainEvent.create({
       data: {
         tenantId: actor.tenantId,
@@ -135,6 +142,7 @@ export async function executeTransition(params: {
           to: transition.toState.code,
           transition: transition.code,
           actorId: actor.id,
+          commEvents,
         },
       },
     });
@@ -156,11 +164,13 @@ interface TransitionedPayload {
   to: string;
   transition: string;
   actorId: string;
+  commEvents?: string[];
 }
 
 /**
  * Consumidor in-process de la outbox: crea el timer de SLA de la nueva etapa,
- * detiene el anterior y genera una notificacion. Idempotente (solo PENDING).
+ * detiene el anterior y dispara las comunicaciones gobernadas (reglas en
+ * `CommunicationRule` -> plantillas TCOM). Idempotente (solo PENDING).
  * En prod esto lo hace un worker BullMQ leyendo domain_events.
  */
 export async function processOutbox(tenantId: string): Promise<number> {
@@ -192,17 +202,21 @@ export async function processOutbox(tenantId: string): Promise<number> {
           });
         }
 
-        // notificacion in-app
-        const kase = await tx.case.findUnique({ where: { id: p.caseId } });
-        const verb = event.type === 'CASE_CREATED' ? 'creado en' : 'paso a';
-        await tx.notification.create({
-          data: {
+        // comunicaciones gobernadas: cada evento -> plantilla via CommunicationRule
+        const commCodes =
+          event.type === 'CASE_CREATED' ? ['caso_creado'] : (p.commEvents ?? []);
+        let chainTail: { seq: number; rowHash: string | null } | null = null;
+        for (const code of commCodes) {
+          const res = await notify({
+            prisma: tx,
             tenantId,
+            eventType: code,
             caseId: p.caseId,
-            type: event.type,
-            message: 'Caso ' + (kase?.humanId ?? p.caseId) + ' ' + verb + ' ' + p.to,
-          },
-        });
+            actorId: p.actorId,
+            chainTail,
+          });
+          chainTail = res.chainTail;
+        }
       }
 
       await tx.domainEvent.update({
@@ -246,22 +260,21 @@ export async function sweepSla(tenantId?: string): Promise<{ warned: number; bre
         await tx.domainEvent.create({
           data: { tenantId: t.case.tenantId, type: 'SLA_BREACHED', payload: { caseId: t.caseId, stage: t.rule.stateCode } },
         });
-        await tx.notification.create({
-          data: {
-            tenantId: t.case.tenantId,
-            caseId: t.caseId,
-            type: 'SLA_BREACHED',
-            message: 'SLA VENCIDO: caso ' + t.case.humanId + ' en etapa ' + t.rule.stateCode,
-          },
+        const breached = await notify({
+          prisma: tx,
+          tenantId: t.case.tenantId,
+          eventType: 'sla_breached',
+          caseId: t.caseId,
+          vars: { etapa: t.rule.stateCode, plazo: t.dueAt.toLocaleString('es-CO') },
         });
         if (t.rule.escalateRole) {
-          await tx.notification.create({
-            data: {
-              tenantId: t.case.tenantId,
-              caseId: t.caseId,
-              type: 'SLA_ESCALADO',
-              message: 'Escalamiento a ' + t.rule.escalateRole + ': ' + t.case.humanId,
-            },
+          await notify({
+            prisma: tx,
+            tenantId: t.case.tenantId,
+            eventType: 'sla_escalado',
+            caseId: t.caseId,
+            vars: { etapa: t.rule.stateCode, escala: t.rule.escalateRole },
+            chainTail: breached.chainTail,
           });
         }
       });
@@ -269,13 +282,15 @@ export async function sweepSla(tenantId?: string): Promise<{ warned: number; bre
     } else if (pct >= t.rule.warnPct && t.status === 'RUNNING') {
       await prisma.$transaction(async (tx) => {
         await tx.slaTimer.update({ where: { id: t.id }, data: { status: 'WARN' } });
-        await tx.notification.create({
-          data: {
-            tenantId: t.case.tenantId,
-            caseId: t.caseId,
-            type: 'SLA_WARN',
-            message: 'SLA en riesgo: caso ' + t.case.humanId + ' en etapa ' + t.rule.stateCode,
-          },
+        await notify({
+          prisma: tx,
+          tenantId: t.case.tenantId,
+          eventType: 'sla_warn',
+          caseId: t.caseId,
+          vars: { etapa: t.rule.stateCode, plazo: t.dueAt.toLocaleString('es-CO') },
+        });
+        await tx.domainEvent.create({
+          data: { tenantId: t.case.tenantId, type: 'SLA_WARN', payload: { caseId: t.caseId, stage: t.rule.stateCode } },
         });
       });
       warned += 1;

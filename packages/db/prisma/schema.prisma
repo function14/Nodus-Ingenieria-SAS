@@ -156,6 +156,8 @@ model Template {
   id       String            @id @default(cuid())
   code     String            @unique
   name     String
+  // Discriminador de plantilla: "form" (JSON Schema) | "communication" (TCOM)
+  kind     String            @default("form")
   versions TemplateVersion[]
 }
 
@@ -165,6 +167,10 @@ model TemplateVersion {
   version    Int
   jsonSchema Json
   uiSchema   Json     @default("{}")
+  // Solo plantillas de comunicacion: cuerpo con variables {token} y cabecera
+  subject    String?
+  body       String?
+  variables  Json     @default("[]")
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
 
@@ -257,20 +263,40 @@ model SlaTimer {
 
 // ---------------- Notificaciones (in-app; canal Comunicaciones) ----------------
 model Notification {
-  id        String   @id @default(cuid())
-  tenantId  String
-  userId    String?
-  caseId    String?
-  type      String
-  message   String
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  tenantId       String
+  userId         String?
+  caseId         String?
+  type           String
+  message        String
+  // Campos de comunicaciones gobernadas (F1):
+  templateCode   String?
+  recipientRole  String?
+  channel        String   @default("in_app") // in_app | email
+  deliveryStatus String   @default("pending") // pending | sent | failed
+  sentAt         DateTime?
+  read           Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   user   User?  @relation(fields: [userId], references: [id])
   case   Case?  @relation(fields: [caseId], references: [id])
 
   @@index([tenantId, createdAt])
+}
+
+// ---------------- Comunicaciones gobernadas: evento -> plantilla -> destinatarios ----------------
+// La tabla que manda el blueprint: cada evento del flujo dispara una plantilla
+// TCOM hacia una categoria de destinatario, por un canal. Todo es DATO.
+model CommunicationRule {
+  id            String  @id @default(cuid())
+  eventType     String // caso_creado, consultor_asignado, sla_warn, ...
+  templateCode  String // TCOM1..TCOM13
+  recipientRole String? // advisory | consultor | mipyme
+  channel       String  @default("in_app") // in_app | email
+  active        Boolean @default(true)
+
+  @@unique([eventType, templateCode, recipientRole])
 }
 
 // ---------------- Bolsa interna: postulaciones del consultor ----------------

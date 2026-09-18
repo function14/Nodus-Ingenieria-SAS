@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
+import { notify } from '@nodus/notifications';
 import { actionProcedure, resourceProcedure, router } from '../trpc';
 
 export const postulationsRouter = router({
@@ -19,13 +20,23 @@ export const postulationsRouter = router({
       });
       if (existing) throw new TRPCError({ code: 'CONFLICT', message: 'Ya te postulaste a este caso' });
 
-      return ctx.prisma.postulation.create({
-        data: {
+      return ctx.prisma.$transaction(async (tx) => {
+        const postulation = await tx.postulation.create({
+          data: {
+            tenantId: ctx.user.tenantId,
+            caseId: input.caseId,
+            consultorId: ctx.user.id,
+            note: input.note,
+          },
+        });
+        await notify({
+          prisma: tx,
           tenantId: ctx.user.tenantId,
+          eventType: 'postulacion_recibida',
           caseId: input.caseId,
-          consultorId: ctx.user.id,
-          note: input.note,
-        },
+          vars: { evento: 'postulacion_recibida' },
+        });
+        return postulation;
       });
     }),
 

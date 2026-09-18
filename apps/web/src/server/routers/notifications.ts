@@ -14,13 +14,22 @@ export const notificationsRouter = router({
       case 'assignedCases':
         where = {
           ...where,
-          OR: [{ userId: ctx.user.id }, { case: { assignedUserId: ctx.user.id } }],
+          OR: [
+            { userId: ctx.user.id },
+            { case: { assignedUserId: ctx.user.id } },
+            // Difusion a su rol: avisos dirigidos al rol sin destinatario concreto.
+            { recipientRole: scope.role, userId: null },
+          ],
         };
         break;
       case 'ownCompany':
         where = {
           ...where,
-          OR: [{ userId: ctx.user.id }, { case: { companyId: scope.companyId } }],
+          OR: [
+            { userId: ctx.user.id },
+            { case: { companyId: scope.companyId } },
+            { recipientRole: scope.role, userId: null },
+          ],
         };
         break;
       case 'ownOnly':
@@ -39,6 +48,10 @@ export const notificationsRouter = router({
       message: n.message,
       read: n.read,
       createdAt: n.createdAt,
+      templateCode: n.templateCode,
+      recipientRole: n.recipientRole,
+      channel: n.channel,
+      deliveryStatus: n.deliveryStatus,
     }));
   }),
 });

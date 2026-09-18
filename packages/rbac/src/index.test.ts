@@ -124,12 +124,12 @@ describe('notificationScope', () => {
     expect(notificationScope(admin)).toEqual({ kind: 'all' });
   });
 
-  it('consultor: solo casos asignados', () => {
-    expect(notificationScope(consultor)).toEqual({ kind: 'assignedCases' });
+  it('consultor: casos asignados + difusion a su rol', () => {
+    expect(notificationScope(consultor)).toEqual({ kind: 'assignedCases', role: 'consultor' });
   });
 
-  it('mipyme: solo su empresa', () => {
-    expect(notificationScope(mipyme)).toEqual({ kind: 'ownCompany', companyId: 'c1' });
+  it('mipyme: su empresa + difusion a su rol', () => {
+    expect(notificationScope(mipyme)).toEqual({ kind: 'ownCompany', companyId: 'c1', role: 'mipyme' });
   });
 
   it('mipyme sin empresa cae a "solo lo propio"', () => {
