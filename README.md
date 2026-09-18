@@ -47,8 +47,8 @@ docker-compose.yml    Postgres, Redis y MinIO para desarrollo
 **Requisitos:** Docker, Node 20+ y pnpm.
 
 ```bash
-git clone git@github.com:function14/Nodus_Tecnica.git
-cd Nodus_Tecnica
+git clone git@github.com:function14/Nodus-Ingenieria-SAS.git
+cd Nodus-Ingenieria-SAS
 
 # 1. Variables de entorno (los valores por defecto sirven para local)
 cp packages/db/.env.example packages/db/.env
