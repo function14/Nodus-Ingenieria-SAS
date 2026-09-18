@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { createHash } from 'node:crypto';
 import { computeRowHash } from '../src/audit';
 
 const prisma = new PrismaClient();
@@ -23,6 +24,8 @@ async function main() {
   await prisma.formSubmission.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.domainEvent.deleteMany();
+  await prisma.documentVersion.deleteMany();
+  await prisma.document.deleteMany();
   await prisma.case.deleteMany();
   await prisma.company.deleteMany();
   await prisma.slaRule.deleteMany();
@@ -317,6 +320,7 @@ async function main() {
     ['entregable_cargado', 'TCOM11', 'advisory', 'in_app'],
     ['entregable_cargado', 'TCOM11', 'mipyme', 'in_app'],
     ['entregable_en_qa', 'TCOM13', 'advisory', 'in_app'],
+    ['documento_subido', 'TCOM13', 'advisory', 'in_app'],
     ['cierre_caso', 'TCOM12', 'mipyme', 'in_app'],
     ['evaluacion_disponible', 'TCOM12', 'mipyme', 'in_app'],
     ['ajustes_propuesta', 'TCOM7', 'consultor', 'in_app'],
@@ -442,6 +446,75 @@ async function main() {
     }
   }
 
+  // Repositorio documental (F3): entregable versionado en el caso en ejecucion.
+  // La bitacora documenta cada subida (DOCUMENTO_SUBIDO) con el mismo mecanismo
+  // append-only: seq continua y rowHash encadena con el ultimo eslabon.
+  const demoCaseId = createdCases['NOD-2026-002'];
+  const demoCase = await prisma.case.findUniqueOrThrow({
+    where: { id: demoCaseId },
+    include: { company: true },
+  });
+  const demoDoc = await prisma.document.create({
+    data: {
+      tenantId: tenant.id,
+      caseId: demoCaseId,
+      stateCode: 'EN_EJECUCION',
+      kind: 'entregable',
+      title: 'Entregable Estudio de Mercado',
+      currentVersion: 2,
+    },
+  });
+  const v1key =
+    'empresa/' + demoCase.companyId + '/caso/' + demoCaseId + '/etapa/EN_EJECUCION/version/1/entregable-estudio-mercado.pdf';
+  const v2key =
+    'empresa/' + demoCase.companyId + '/caso/' + demoCaseId + '/etapa/EN_EJECUCION/version/2/entregable-estudio-mercado.pdf';
+  const demoChecksum = createHash('sha256').update('demo-entregable').digest('hex');
+  const demoVersions = [
+    { version: 1, objectKey: v1key, sizeBytes: 204_800 },
+    { version: 2, objectKey: v2key, sizeBytes: 245_760 },
+  ];
+  for (const dv of demoVersions) {
+    const row = await prisma.documentVersion.create({
+      data: {
+        documentId: demoDoc.id,
+        version: dv.version,
+        objectKey: dv.objectKey,
+        mime: 'application/pdf',
+        sizeBytes: dv.sizeBytes,
+        checksum: demoChecksum,
+        uploadedById: users['consultor'],
+      },
+    });
+    seq += 1;
+    const rec = {
+      seq,
+      action: 'DOCUMENTO_SUBIDO',
+      entityType: 'DocumentVersion',
+      entityId: row.id,
+      fromState: null as string | null,
+      toState: null as string | null,
+      payload: { kind: 'entregable', title: 'Entregable Estudio de Mercado', version: dv.version, sizeBytes: dv.sizeBytes } as unknown,
+    };
+    const rowHash = computeRowHash(prevHash, rec);
+    await prisma.auditLog.create({
+      data: {
+        tenantId: tenant.id,
+        seq,
+        caseId: demoCaseId,
+        actorId: users['consultor'],
+        action: rec.action,
+        entityType: rec.entityType,
+        entityId: rec.entityId,
+        fromState: rec.fromState,
+        toState: rec.toState,
+        payload: rec.payload as object,
+        prevHash,
+        rowHash,
+      },
+    });
+    prevHash = rowHash;
+  }
+
   // Notificaciones de distinto alcance, para que el scoping por rol sea visible:
   // - N1: caso de RetailModa (asignado al consultor) -> lo ven consultor y mipyme.
   // - N2: caso sin asignar -> solo PMO/Admin.
@@ -486,6 +559,7 @@ async function main() {
   console.log('  estados:', stateData.length, '| transiciones:', transitions.length, '| SLA rules:', slaData.length);
   console.log('  plantillas comunicacion:', commTemplates.length, '| reglas de comunicacion:', commRules.length);
   console.log('  empresas:', companyNames.length, '| casos:', caseData.length);
+  console.log('  documentos demo:', 1, '| versiones entregable demo:', 2);
   console.log('  bitacora hash-chain:', seq, 'registros | ultimo hash:', (prevHash ?? '').slice(0, 16) + '...');
   console.log('  login demo -> advisory@demo.nodus / demo1234 (y consultor@, mipyme@, admin@)');
 }

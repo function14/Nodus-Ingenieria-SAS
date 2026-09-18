@@ -64,6 +64,10 @@ export const casesRouter = router({
             orderBy: { createdAt: 'desc' },
             include: { templateVersion: { include: { template: true } } },
           },
+          documents: {
+            orderBy: { updatedAt: 'desc' },
+            include: { versions: { orderBy: { version: 'asc' } } },
+          },
         },
       });
       if (!c) throw new TRPCError({ code: 'NOT_FOUND' });

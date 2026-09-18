@@ -22,6 +22,7 @@ model Tenant {
   domainEvents  DomainEvent[]
   notifications Notification[]
   postulations  Postulation[]
+  documents    Document[]
 }
 
 // ---------------- RBAC ----------------
@@ -51,6 +52,7 @@ model User {
   notifications Notification[]
   postulations  Postulation[]
   company       Company?         @relation(fields: [companyId], references: [id])
+  documentUploads DocumentVersion[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -146,6 +148,7 @@ model Case {
   slaTimers    SlaTimer[]
   notifications Notification[]
   postulations Postulation[]
+  documents    Document[]
 
   @@unique([tenantId, humanId])
   @@index([tenantId, currentStateId])
@@ -321,4 +324,54 @@ model Postulation {
 
   @@unique([caseId, consultorId])
   @@index([tenantId])
+}
+
+// ---------------- Repositorio documental (F3, RT-019..RT-023) ----------------
+// Un documento vive en el caso y su ciclo es APPEND-ONLY por version:
+//   Document        -> cabecera (kind: anexo | entregable | evidencia)
+//   DocumentVersion -> append-only: subir de nuevo crea v+1 (RF-041/042).
+// La ruta fisica se deriva SIEMPRE del objectKey:
+//   empresa/{empId}/caso/{caseId}/etapa/{stateCode}/version/{v}/{filename}
+// (RT-023: almacenamiento por etapa y version). No existe `update` en ningun
+// nivel versionado; si el documento no es correcto, se sube una version nueva.
+model Document {
+  id             String   @id @default(cuid())
+  tenantId       String
+  caseId         String
+  /// Etapa (CaseState.code) a la que pertenece el documento.
+  stateCode      String
+  /// kind: anexo | entregable | evidencia
+  kind           String   @default("anexo")
+  title          String
+  currentVersion Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  case     Case              @relation(fields: [caseId], references: [id])
+  versions DocumentVersion[]
+
+  /// Un mismo documento del caso es UNA entidad: re-subir = nueva version.
+  @@unique([tenantId, caseId, kind, title])
+  @@index([tenantId, caseId])
+  @@index([caseId, stateCode])
+}
+
+model DocumentVersion {
+  id           String   @id @default(cuid())
+  documentId   String
+  version      Int
+  objectKey    String   @unique
+  mime         String
+  sizeBytes    Int
+  /// sha256 hex del archivo, calculado por el cliente y verificable al leer.
+  checksum     String
+  uploadedById String
+  uploadedAt   DateTime @default(now())
+
+  document   Document @relation(fields: [documentId], references: [id])
+  uploadedBy User     @relation(fields: [uploadedById], references: [id])
+
+  @@unique([documentId, version])
+  @@index([documentId])
 }

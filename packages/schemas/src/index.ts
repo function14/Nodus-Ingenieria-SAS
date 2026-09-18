@@ -57,3 +57,27 @@ export const credentialsSchema = z.object({
   password: z.string().min(6),
 });
 export type Credentials = z.infer<typeof credentialsSchema>;
+
+/** Tipos de documento del repositorio (F3). kind como LOV, no como enum. */
+export const documentKindSchema = z.enum(['anexo', 'entregable', 'evidencia']);
+export type DocumentKind = z.infer<typeof documentKindSchema>;
+
+/** Subida de un documento (F3). Re-subir el mismo kind+title => version v+1. */
+export const documentUploadInputSchema = z.object({
+  caseId: z.string().min(1),
+  kind: documentKindSchema,
+  title: z.string().min(1).max(200),
+  mime: z.string().min(1),
+  sizeBytes: z.number().int().positive(),
+  checksum: z.string().regex(/^[a-f0-9]{64}$/i, 'checksum debe ser sha256 hex'),
+  filename: z.string().min(1).max(255),
+});
+export type DocumentUploadInput = z.infer<typeof documentUploadInputSchema>;
+
+/** Pedir la URL firmada de descarga (F3). version opcional -> ultima. */
+export const documentDownloadInputSchema = z.object({
+  caseId: z.string().min(1),
+  documentId: z.string().min(1),
+  version: z.number().int().positive().optional(),
+});
+export type DocumentDownloadInput = z.infer<typeof documentDownloadInputSchema>;

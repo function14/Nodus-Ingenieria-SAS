@@ -42,6 +42,7 @@ export const ACTION_ACCESS = {
   'case.assign': ['advisory'],
   'postulation.create': ['consultor'],
   'sla.sweep': ['advisory', 'admin'],
+  'document.upload': ['advisory', 'admin', 'consultor', 'mipyme'],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Action = keyof typeof ACTION_ACCESS;
@@ -94,6 +95,23 @@ export function isCaseMaskedFor(
   kase: { assignedUserId: string | null },
 ): boolean {
   return actor.role === 'consultor' && kase.assignedUserId !== actor.id;
+}
+
+/**
+ * Regla UNICA de acceso a la zona documental de un caso (F3, RT-022).
+ * Reusa la misma semantica del masking pero es MAS estricta que el detalle:
+ *   - consultor: solo los documentos de los casos que tiene ASIGNADOS;
+ *   - mipyme: solo los casos de su empresa;
+ *   - advisory/admin/system: acceso pleno (los demas han sido gated antes).
+ * Subir o pedir la URL firmada de un caso que no corresponde -> FORBIDDEN.
+ */
+export function canAccessCaseDocuments(
+  actor: Actor,
+  kase: { assignedUserId: string | null; companyId: string | null },
+): boolean {
+  if (actor.role === 'consultor') return kase.assignedUserId === actor.id;
+  if (actor.role === 'mipyme') return actor.companyId === kase.companyId;
+  return true;
 }
 
 export interface MaskableCase {

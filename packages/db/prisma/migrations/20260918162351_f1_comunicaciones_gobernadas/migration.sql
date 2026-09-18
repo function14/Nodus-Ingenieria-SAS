@@ -27,3 +27,15 @@ CREATE TABLE "CommunicationRule" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "CommunicationRule_eventType_templateCode_recipientRole_key" ON "CommunicationRule"("eventType", "templateCode", "recipientRole");
+
+-- F1 (wave 2): variables de la comunicacion, permiten re-renderizar la plantilla
+-- POR LECTOR y aplicar el masking (un aviso de difusion es una sola fila que
+-- distintos roles deben ver distinta).
+-- (Fusionada aqui: una migracion previa nombrada como "fix" se elimino porque su
+-- sello horario la hacia aplicar ANTES de esta, pero dependia de sus columnas.)
+ALTER TABLE "Notification" ADD COLUMN "vars" JSONB;
+
+CREATE INDEX "Notification_tenantId_recipientRole_userId_idx"
+  ON "Notification"("tenantId", "recipientRole", "userId");
+CREATE INDEX "Notification_tenantId_channel_deliveryStatus_idx"
+  ON "Notification"("tenantId", "channel", "deliveryStatus");
