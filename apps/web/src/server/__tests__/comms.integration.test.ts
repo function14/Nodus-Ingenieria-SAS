@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { prisma, computeRowHash } from '@nodus/db';
+import { MASKED_COMPANY } from '@nodus/rbac';
+import { notify } from '@nodus/notifications';
 import { appRouter } from '../routers/_app';
 import { createCallerFactory } from '../trpc';
 import type { Context } from '../context';
@@ -126,20 +128,38 @@ describe('F1 - comunicaciones gobernadas', () => {
     expect(notif!.message).toContain('EN_REVISION');
   });
 
-  it('clasificar -> TCOM3 (advisory) y TCOM4 difusion a consultores (bolsa)', async () => {
+  it('clasificar -> TCOM3 (aviso interno advisory)', async () => {
     await callerFor(advisory).cases.transition({ caseId, transitionCode: 'clasificar' });
     const t3 = await prisma.notification.findFirst({ where: { caseId, templateCode: 'TCOM3' } });
     expect(t3).toBeTruthy();
     expect(t3!.recipientRole).toBe('advisory');
+  });
 
+  it('publicar_bolsa -> TCOM4 difusion a consultores (bolsa, con masking)', async () => {
+    await callerFor(advisory).cases.transition({ caseId, transitionCode: 'publicar_bolsa' });
     const t4 = await prisma.notification.findFirst({ where: { caseId, templateCode: 'TCOM4' } });
     expect(t4).toBeTruthy();
     expect(t4!.recipientRole).toBe('consultor');
     expect(t4!.userId).toBeNull();
 
-    // difusion a rol: el consultor la ve pese a no estar asignado al caso
+    // Difusion a rol: el consultor SI se entera de la oportunidad...
     const consultorView = await callerFor(consultor).notifications.recent();
-    expect(consultorView.some((n) => n.templateCode === 'TCOM4')).toBe(true);
+    const aviso = consultorView.find((n) => n.templateCode === 'TCOM4');
+    expect(aviso).toBeTruthy();
+
+    // ...pero SIN la identidad del cliente, porque el caso aun no es suyo.
+    const empresa = (await prisma.case.findUniqueOrThrow({
+      where: { id: caseId },
+      include: { company: true },
+    })).company.name;
+    expect(t4!.message).toContain(empresa); // la fila guarda el texto completo
+    expect(aviso!.message).not.toContain(empresa); // el lector no lo recibe
+    expect(aviso!.message).toContain(MASKED_COMPANY);
+
+    // El advisory, en cambio, lo ve tal cual.
+    const advisoryView = await callerFor(advisory).notifications.recent();
+    const mismo = advisoryView.find((n) => n.id === t4!.id);
+    expect(mismo!.message).toContain(empresa);
   });
 
   it('postulacion -> TCOM13 (postulacion_recibida)', async () => {
@@ -193,5 +213,68 @@ describe('F1 - comunicaciones gobernadas', () => {
 
   it('la hash-chain de la bitacora permanece integra tras las comunicaciones', async () => {
     await expectChainIntegrity();
+  });
+});
+/* ------------------------------------------------------------------ */
+/* Regresion: las comunicaciones no pueden abrir una via lateral al    */
+/* masking que ya aplican la lista y el detalle de casos.              */
+/* ------------------------------------------------------------------ */
+describe('F1 regresion - las comunicaciones no filtran identidad', () => {
+  it('el consultor no lee el nombre real de NINGUNA empresa de casos no asignados', async () => {
+    const view = await callerFor(consultor).notifications.recent();
+    const asignados = new Set(
+      (
+        await prisma.case.findMany({
+          where: { assignedUserId: consultor.id },
+          select: { id: true },
+        })
+      ).map((c) => c.id),
+    );
+
+    for (const n of view) {
+      const row = await prisma.notification.findUnique({
+        where: { id: n.id },
+        include: { case: { include: { company: true } } },
+      });
+      if (!row?.case || asignados.has(row.case.id)) continue;
+      expect(n.message).not.toContain(row.case.company.name);
+    }
+  });
+
+  it('la mipyme no recibe comunicaciones de casos de otras empresas', async () => {
+    expect(mipyme.companyId).toBeTruthy();
+
+    // Se dispara la comunicacion de apertura de un caso AJENO con el motor real.
+    const ajeno = await prisma.case.findFirstOrThrow({
+      where: { companyId: { not: mipyme.companyId! } },
+      include: { company: true },
+    });
+    await notify({
+      prisma,
+      tenantId: mipyme.tenantId,
+      eventType: 'caso_creado',
+      caseId: ajeno.id,
+      actorId: null,
+    });
+
+    const view = await callerFor(mipyme).notifications.recent();
+    for (const n of view) {
+      const row = await prisma.notification.findUnique({
+        where: { id: n.id },
+        include: { case: true },
+      });
+      if (!row?.case) continue;
+      expect(row.case.companyId).toBe(mipyme.companyId);
+    }
+    expect(view.every((n) => !n.message.includes(ajeno.company.name))).toBe(true);
+  });
+
+  it('notify() no envia correo dentro de la transaccion: lo deja pendiente', async () => {
+    // Sin RESEND_API_KEY no se crean filas de email; con ella, nacen 'pending'
+    // y solo dispatchPendingEmails() las pasa a 'sent'.
+    const enviadasSinDespachar = await prisma.notification.count({
+      where: { channel: 'email', deliveryStatus: 'sent', sentAt: null },
+    });
+    expect(enviadasSinDespachar).toBe(0);
   });
 });

@@ -115,7 +115,7 @@ export const casesRouter = router({
         const result = await executeTransition({
           caseId: input.caseId,
           transitionCode: input.transitionCode,
-          actor: { id: ctx.user.id, role: ctx.user.role, tenantId: ctx.user.tenantId },
+          actor: { id: ctx.user.id, role: ctx.user.role, tenantId: ctx.user.tenantId, companyId: ctx.user.companyId },
           expectedVersion: input.expectedVersion,
         });
         await processOutbox(ctx.user.tenantId);
@@ -136,8 +136,8 @@ export const casesRouter = router({
         include: { currentState: true },
       });
       if (!c) throw new TRPCError({ code: 'NOT_FOUND' });
-      if (c.currentState.code !== 'CLASIFICADO') {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'El caso no esta listo para asignar (CLASIFICADO)' });
+      if (c.currentState.code !== 'EN_POSTULACION') {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'El caso no esta en postulacion (EN_POSTULACION)' });
       }
       const post = await ctx.prisma.postulation.findUnique({
         where: { caseId_consultorId: { caseId: input.caseId, consultorId: input.consultorId } },
@@ -157,7 +157,7 @@ export const casesRouter = router({
         const result = await executeTransition({
           caseId: input.caseId,
           transitionCode: 'asignar',
-          actor: { id: ctx.user.id, role: ctx.user.role, tenantId: ctx.user.tenantId },
+          actor: { id: ctx.user.id, role: ctx.user.role, tenantId: ctx.user.tenantId, companyId: ctx.user.companyId },
         });
         await processOutbox(ctx.user.tenantId);
         return result;

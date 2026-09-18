@@ -140,31 +140,56 @@ describe('G3 - alertas acotadas por rol / empresa / asignacion', () => {
     expect(all.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('consultor solo ve las de los casos asignados a el', async () => {
+  it('consultor solo ve lo suyo, sus casos y la difusion de bolsa (enmascarada)', async () => {
     const mine = await callerFor(consultor).notifications.recent();
-    const all = await callerFor(advisory).notifications.recent();
     expect(mine.length).toBeGreaterThan(0);
-    expect(mine.length).toBeLessThan(all.length);
+
+    // Comparar longitudes del feed no mide alcance: la consulta esta topada en
+    // 20 y ambos roles llegan al tope. Se compara el universo real.
+    const visiblesConsultor = await prisma.notification.count({
+      where: {
+        tenantId: consultor.tenantId,
+        OR: [
+          { userId: consultor.id },
+          { case: { assignedUserId: consultor.id } },
+          { recipientRole: 'consultor', userId: null },
+        ],
+      },
+    });
+    const totalTenant = await prisma.notification.count({ where: { tenantId: consultor.tenantId } });
+    expect(visiblesConsultor).toBeLessThan(totalTenant);
 
     const assignedIds = (
       await prisma.case.findMany({ where: { assignedUserId: consultor.id }, select: { id: true } })
     ).map((c) => c.id);
     const rows = await prisma.notification.findMany({
       where: { id: { in: mine.map((n) => n.id) } },
-      select: { caseId: true, userId: true },
+      select: { id: true, caseId: true, userId: true, recipientRole: true },
     });
     for (const r of rows) {
-      const ok = r.caseId === null ? r.userId === consultor.id : assignedIds.includes(r.caseId);
-      expect(ok).toBe(true);
+      const propia = r.userId === consultor.id;
+      const deSuCaso = r.caseId !== null && assignedIds.includes(r.caseId);
+      // La difusion de bolsa es legitima (RF-026/028: el consultor debe
+      // enterarse de la oportunidad); lo que no puede llevar es identidad del
+      // cliente, y eso lo fija el test de regresion de comms.
+      const difusion = r.userId === null && r.recipientRole === 'consultor';
+      expect(propia || deSuCaso || difusion).toBe(true);
     }
   });
 
   it('mipyme solo ve las de los casos de su empresa', async () => {
     expect(mipyme.companyId).toBeTruthy();
     const mine = await callerFor(mipyme).notifications.recent();
-    const all = await callerFor(advisory).notifications.recent();
     expect(mine.length).toBeGreaterThan(0);
-    expect(mine.length).toBeLessThan(all.length);
+
+    const visiblesMipyme = await prisma.notification.count({
+      where: {
+        tenantId: mipyme.tenantId,
+        OR: [{ userId: mipyme.id }, { case: { companyId: mipyme.companyId! } }],
+      },
+    });
+    const totalTenant = await prisma.notification.count({ where: { tenantId: mipyme.tenantId } });
+    expect(visiblesMipyme).toBeLessThan(totalTenant);
 
     const companyCaseIds = (
       await prisma.case.findMany({ where: { companyId: mipyme.companyId! }, select: { id: true } })

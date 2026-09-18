@@ -16,7 +16,7 @@
  *     (se le pasa el `tx` de la transaccion del dominio).
  */
 import { computeRowHash } from '@nodus/db';
-import type { Prisma } from '@nodus/db';
+import type { Prisma, PrismaClient } from '@nodus/db';
 import { renderTemplate, renderSubject } from './render';
 import { emailConfigured, sendEmail } from './email';
 import { resolveEmailRecipients } from './recipients';
@@ -200,6 +200,9 @@ export async function notify(params: NotifyParams): Promise<NotifyResult> {
         channel: 'in_app',
         deliveryStatus: 'sent',
         sentAt: now,
+        // Se guardan para re-renderizar POR LECTOR y aplicar el masking:
+        // un aviso de difusion es UNA fila que cada rol debe ver distinta.
+        vars: vars as Prisma.InputJsonValue,
       },
     });
     notifications += 1;
@@ -220,9 +223,11 @@ export async function notify(params: NotifyParams): Promise<NotifyResult> {
     chain = { seq: inAppEntry.seq + 1, rowHash: inAppEntry.rowHash };
     logs += 1;
 
-    // Canal email: optativo y configurable; degrada sin romper.
-    // QUÉ correos reciben lo decide resolveEmailRecipients a partir de DATOS
-    // (usuario asignado / empresa del caso / rol / override).
+    // Canal email: se DEJA PENDIENTE, nunca se envia aqui.
+    // notify() corre dentro de la transaccion de dominio; una llamada de red
+    // dentro del tx bloquea filas y, si la transaccion revierte, el correo ya
+    // salio y no se puede deshacer. El envio real lo hace
+    // dispatchPendingEmails() despues del commit.
     if (rule.channel === 'email' && emailConfigured()) {
       const recipients = await resolveEmailRecipients({
         prisma,
@@ -234,8 +239,6 @@ export async function notify(params: NotifyParams): Promise<NotifyResult> {
       });
 
       for (const rc of recipients) {
-        const outcome = await sendEmail({ to: rc.email, subject, body });
-        const status = outcome.ok ? 'sent' : outcome.skipped ? 'pending' : 'failed';
         const emailRow = await prisma.notification.create({
           data: {
             tenantId,
@@ -246,8 +249,8 @@ export async function notify(params: NotifyParams): Promise<NotifyResult> {
             templateCode: rule.templateCode,
             recipientRole: rule.recipientRole,
             channel: 'email',
-            deliveryStatus: status,
-            sentAt: now,
+            deliveryStatus: 'pending',
+            vars: { ...vars, __to: rc.email } as Prisma.InputJsonValue,
           },
         });
         notifications += 1;
@@ -264,7 +267,7 @@ export async function notify(params: NotifyParams): Promise<NotifyResult> {
           templateCode: rule.templateCode,
           recipientRole: rule.recipientRole,
           channel: 'email',
-          deliveryStatus: status,
+          deliveryStatus: 'pending',
         });
         chain = { seq: emailEntry.seq + 1, rowHash: emailEntry.rowHash };
         logs += 1;
@@ -273,4 +276,87 @@ export async function notify(params: NotifyParams): Promise<NotifyResult> {
   }
 
   return { notifications, emails, logs, applied: notifications > 0, chainTail: chain };
+}
+/**
+ * Envia los correos que `notify()` dejo en estado `pending`.
+ *
+ * Corre FUERA de la transaccion de dominio (lo llama el consumidor de la
+ * outbox tras el commit): asi ninguna llamada de red bloquea filas, y un
+ * correo nunca se envia por una transaccion que despues revierte.
+ *
+ * Es idempotente: solo toma filas `channel='email' AND deliveryStatus='pending'`,
+ * y el resultado del envio queda en la bitacora encadenada.
+ */
+export async function dispatchPendingEmails(params: {
+  /** Cliente real, no un `tx`: esta funcion abre sus propias transacciones. */
+  prisma: PrismaClient;
+  tenantId: string;
+  limit?: number;
+}): Promise<{ sent: number; failed: number }> {
+  const { prisma, tenantId, limit = 50 } = params;
+  if (!emailConfigured()) return { sent: 0, failed: 0 };
+
+  const pending = await prisma.notification.findMany({
+    where: { tenantId, channel: 'email', deliveryStatus: 'pending' },
+    orderBy: { createdAt: 'asc' },
+    take: limit,
+  });
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const row of pending) {
+    const vars = (row.vars ?? {}) as Record<string, string | number | null | undefined> & {
+      __to?: string;
+    };
+    const to = vars.__to;
+    if (!to) {
+      failed += 1;
+      continue;
+    }
+
+    const tv = await prisma.templateVersion.findFirst({
+      where: { template: { code: row.templateCode ?? '' }, isActive: true },
+      orderBy: { version: 'desc' },
+      include: { template: true },
+    });
+    const subject = tv
+      ? renderSubject(tv.subject, vars, tv.template.name)
+      : (row.templateCode ?? 'NODUS');
+
+    const outcome = await sendEmail({ to, subject, body: row.message });
+    const status = outcome.ok ? 'sent' : outcome.skipped ? 'pending' : 'failed';
+    if (status === 'pending') continue;
+    if (outcome.ok) sent += 1;
+    else failed += 1;
+
+    // El resultado del envio es parte de la comunicacion: se audita encadenado.
+    await prisma.$transaction(async (tx) => {
+      await tx.notification.update({
+        where: { id: row.id },
+        data: { deliveryStatus: status, sentAt: new Date() },
+      });
+      const latest = await tx.auditLog.findFirst({
+        where: { tenantId },
+        orderBy: { seq: 'desc' },
+        select: { seq: true, rowHash: true },
+      });
+      await appendCommunicationLog({
+        prisma: tx,
+        tenantId,
+        caseId: row.caseId,
+        actorId: null,
+        seq: (latest?.seq ?? 0) + 1,
+        prevHash: latest?.rowHash ?? null,
+        notificationId: row.id,
+        eventType: row.type,
+        templateCode: row.templateCode ?? '',
+        recipientRole: row.recipientRole,
+        channel: 'email',
+        deliveryStatus: status,
+      });
+    });
+  }
+
+  return { sent, failed };
 }

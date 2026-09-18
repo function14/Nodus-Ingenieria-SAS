@@ -275,6 +275,10 @@ model Notification {
   channel        String   @default("in_app") // in_app | email
   deliveryStatus String   @default("pending") // pending | sent | failed
   sentAt         DateTime?
+  // Variables con las que se renderizo la plantilla. Se guardan para poder
+  // re-renderizar POR LECTOR y aplicar el masking (un aviso de difusion es
+  // una sola fila que distintos roles deben ver distinta).
+  vars           Json?
   read           Boolean  @default(false)
   createdAt      DateTime @default(now())
 
@@ -283,6 +287,8 @@ model Notification {
   case   Case?  @relation(fields: [caseId], references: [id])
 
   @@index([tenantId, createdAt])
+  @@index([tenantId, recipientRole, userId])
+  @@index([tenantId, channel, deliveryStatus])
 }
 
 // ---------------- Comunicaciones gobernadas: evento -> plantilla -> destinatarios ----------------

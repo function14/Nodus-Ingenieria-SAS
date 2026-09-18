@@ -12,8 +12,8 @@ export const postulationsRouter = router({
         include: { currentState: true },
       });
       if (!c) throw new TRPCError({ code: 'NOT_FOUND' });
-      if (c.currentState.code !== 'CLASIFICADO') {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'El caso no esta en bolsa (CLASIFICADO)' });
+      if (c.currentState.code !== 'EN_POSTULACION') {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'El caso no esta en bolsa (EN_POSTULACION)' });
       }
       const existing = await ctx.prisma.postulation.findUnique({
         where: { caseId_consultorId: { caseId: input.caseId, consultorId: ctx.user.id } },
@@ -60,7 +60,7 @@ export const postulationsRouter = router({
 
   bolsa: resourceProcedure('bolsa').query(async ({ ctx }) => {
     const cases = await ctx.prisma.case.findMany({
-      where: { tenantId: ctx.user.tenantId, currentState: { code: 'CLASIFICADO' } },
+      where: { tenantId: ctx.user.tenantId, currentState: { code: 'EN_POSTULACION' } },
       include: { company: true, postulations: true },
       orderBy: { updatedAt: 'desc' },
     });

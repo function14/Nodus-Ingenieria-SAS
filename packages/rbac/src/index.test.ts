@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   allowedRoutes,
+  maskCommunicationVars,
   applyCaseMask,
   canAccess,
   canPerform,
@@ -128,11 +129,35 @@ describe('notificationScope', () => {
     expect(notificationScope(consultor)).toEqual({ kind: 'assignedCases', role: 'consultor' });
   });
 
-  it('mipyme: su empresa + difusion a su rol', () => {
-    expect(notificationScope(mipyme)).toEqual({ kind: 'ownCompany', companyId: 'c1', role: 'mipyme' });
+  it('mipyme: solo su empresa, SIN difusion por rol', () => {
+    // Un aviso "a todas las Mipymes" expondria casos de otras empresas cliente.
+    expect(notificationScope(mipyme)).toEqual({ kind: 'ownCompany', companyId: 'c1' });
   });
 
   it('mipyme sin empresa cae a "solo lo propio"', () => {
     expect(notificationScope({ ...mipyme, companyId: null })).toEqual({ kind: 'ownOnly' });
+  });
+});
+
+describe('maskCommunicationVars (difusion: una fila, varias lecturas)', () => {
+  const unassigned = { assignedUserId: null };
+  const mine = { assignedUserId: 'u-con' };
+  const vars = { humanId: 'NOD-2026-008', empresa: 'Agricola del Sur', estado: 'CLASIFICADO' };
+
+  it('oculta la empresa al consultor no asignado', () => {
+    const out = maskCommunicationVars(consultor, unassigned, vars);
+    expect(out.empresa).toBe(MASKED_COMPANY);
+    expect(out.empresa).not.toBe('Agricola del Sur');
+    expect(out.humanId).toBe('NOD-2026-008');
+  });
+
+  it('muestra la empresa en el caso asignado a el', () => {
+    expect(maskCommunicationVars(consultor, mine, vars).empresa).toBe('Agricola del Sur');
+  });
+
+  it('no toca nada para advisory, admin ni mipyme', () => {
+    for (const actor of [advisory, admin, mipyme]) {
+      expect(maskCommunicationVars(actor, unassigned, vars).empresa).toBe('Agricola del Sur');
+    }
   });
 });

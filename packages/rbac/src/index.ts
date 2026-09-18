@@ -113,6 +113,31 @@ export function applyCaseMask<T extends MaskableCase>(
     : { ...data, masked };
 }
 
+/**
+ * Variables de una comunicación que revelan identidad del cliente y por tanto
+ * deben pasar por el masking antes de renderizarse para un destinatario.
+ */
+const IDENTITY_VARS = ['empresa', 'titulo', 'title', 'company'] as const;
+
+/**
+ * Enmascara las variables de una comunicación según la MISMA regla que la
+ * lista y el detalle de casos. Un aviso de difusión (p. ej. TCOM4, bolsa) se
+ * guarda una sola vez, pero se renderiza por lector: el advisory ve la empresa
+ * real y el consultor no asignado ve `MASKED_COMPANY`.
+ */
+export function maskCommunicationVars(
+  actor: Pick<Actor, 'id' | 'role'>,
+  kase: { assignedUserId: string | null },
+  vars: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!isCaseMaskedFor(actor, kase)) return vars;
+  const out = { ...vars };
+  for (const key of IDENTITY_VARS) {
+    if (key in out) out[key] = key === 'empresa' || key === 'company' ? MASKED_COMPANY : MASKED_TITLE;
+  }
+  return out;
+}
+
 /* ------------------------------------------------------------------ */
 /* Alcance de notificaciones                                           */
 /* ------------------------------------------------------------------ */
@@ -126,10 +151,10 @@ export type NotificationScope =
    */
   | { kind: 'assignedCases'; role: 'consultor' }
   /**
-   * Mipyme: lo suyo, lo de los casos de su empresa, y los avisos de difusión
-   * a su rol (recipientRole='mipyme' sin destinatario concreto).
+   * Mipyme: lo suyo y lo de los casos de su empresa. NO hay difusión por rol:
+   * un aviso "a todas las Mipymes" expondría casos de otras empresas cliente.
    */
-  | { kind: 'ownCompany'; companyId: string; role: 'mipyme' }
+  | { kind: 'ownCompany'; companyId: string }
   /** Sin empresa/rol reconocido: solo lo dirigido explícitamente al usuario. */
   | { kind: 'ownOnly' };
 
@@ -137,7 +162,7 @@ export function notificationScope(actor: Actor): NotificationScope {
   if (actor.role === 'advisory' || actor.role === 'admin') return { kind: 'all' };
   if (actor.role === 'consultor') return { kind: 'assignedCases', role: 'consultor' };
   if (actor.role === 'mipyme' && actor.companyId) {
-    return { kind: 'ownCompany', companyId: actor.companyId, role: 'mipyme' };
+    return { kind: 'ownCompany', companyId: actor.companyId };
   }
   return { kind: 'ownOnly' };
 }

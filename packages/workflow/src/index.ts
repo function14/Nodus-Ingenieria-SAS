@@ -1,5 +1,5 @@
 import { prisma, computeRowHash } from '@nodus/db';
-import { notify } from '@nodus/notifications';
+import { notify, dispatchPendingEmails } from '@nodus/notifications';
 
 export type WorkflowErrorCode =
   | 'NOT_FOUND'
@@ -22,6 +22,7 @@ export interface TransitionActor {
   id: string;
   role: string;
   tenantId: string;
+  companyId?: string | null;
 }
 
 export interface TransitionResult {
@@ -33,14 +34,38 @@ export interface TransitionResult {
   eventId: string;
 }
 
+interface GuardContext {
+  assignedUserId: string | null;
+  actorId: string;
+  actorRole: string;
+  companyId: string | null;
+  caseCompanyId: string | null;
+}
+
 // Evaluador de guardas declarativas (JSON). Punto de extension del Dia 2;
 // las guardas siempre activas (rol, estado, version) van en executeTransition.
-function evaluateGuards(guards: unknown, ctx: { assignedUserId: string | null }): void {
+// Una guarda con `role` solo se evalua si la ejecuta un actor de ese rol.
+function evaluateGuards(guards: unknown, ctx: GuardContext): void {
   if (!Array.isArray(guards)) return;
   for (const g of guards) {
-    const rule = g as { type?: string };
-    if (rule?.type === 'assigneeRequired' && !ctx.assignedUserId) {
-      throw new WorkflowError('INVALID_STATE', 'La transicion requiere un consultor asignado');
+    const rule = g as { type?: string; role?: string };
+    if (rule?.role && rule.role !== ctx.actorRole) continue;
+    switch (rule?.type) {
+      case 'assigneeRequired':
+        if (!ctx.assignedUserId) {
+          throw new WorkflowError('INVALID_STATE', 'La transicion requiere un consultor asignado');
+        }
+        break;
+      case 'assigneeMustAct':
+        if (!ctx.assignedUserId || ctx.assignedUserId !== ctx.actorId) {
+          throw new WorkflowError('FORBIDDEN', 'Solo el consultor asignado puede ejecutar esta transicion');
+        }
+        break;
+      case 'companyOwnerMustAct':
+        if (!ctx.caseCompanyId || ctx.caseCompanyId !== ctx.companyId) {
+          throw new WorkflowError('FORBIDDEN', 'Solo la empresa duena del caso puede ejecutar esta transicion');
+        }
+        break;
     }
   }
 }
@@ -80,7 +105,13 @@ export async function executeTransition(params: {
     if (!transition.allowedRoles.includes(actor.role)) {
       throw new WorkflowError('FORBIDDEN', 'Tu rol no puede ejecutar esta transicion');
     }
-    evaluateGuards(transition.guards, { assignedUserId: kase.assignedUserId });
+    evaluateGuards(transition.guards, {
+      assignedUserId: kase.assignedUserId,
+      actorId: actor.id,
+      actorRole: actor.role,
+      companyId: actor.companyId ?? null,
+      caseCompanyId: kase.companyId,
+    });
 
     // --- CAMBIO DE ESTADO: compare-and-swap atomico (defensa ante carreras) ---
     const swap = await tx.case.updateMany({
@@ -227,6 +258,10 @@ export async function processOutbox(tenantId: string): Promise<number> {
     processed += 1;
   }
 
+  // El correo se despacha DESPUES del commit: ninguna llamada de red ocurre
+  // dentro de la transaccion de dominio.
+  await dispatchPendingEmails({ prisma, tenantId });
+
   return processed;
 }
 
@@ -295,6 +330,14 @@ export async function sweepSla(tenantId?: string): Promise<{ warned: number; bre
       });
       warned += 1;
     }
+  }
+
+  // Igual que en processOutbox: el correo sale tras los commits, nunca dentro.
+  const tenants = tenantId
+    ? [tenantId]
+    : [...new Set(timers.map((t) => t.case.tenantId))];
+  for (const id of tenants) {
+    await dispatchPendingEmails({ prisma, tenantId: id });
   }
 
   return { warned, breached };
