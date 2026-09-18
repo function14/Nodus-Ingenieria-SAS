@@ -11,6 +11,11 @@ resource "vercel_project" "web" {
   framework      = "nextjs"
   root_directory = var.root_directory
 
+  # Al crear el proyecto por API esto queda en false (por el panel viene en
+  # true). Sin VERCEL/VERCEL_URL, Auth.js deja de confiar en el host y toda
+  # /api/auth/* responde 500 "problem with the server configuration".
+  automatically_expose_system_environment_variables = true
+
   # En un monorepo pnpm, Vercel no genera el cliente de Prisma de forma fiable:
   # sin este paso el build cae con "@prisma/client did not initialize yet".
   build_command = "pnpm --filter @nodus/db exec prisma generate && pnpm build"
@@ -45,4 +50,14 @@ resource "vercel_project_environment_variable" "cron_secret" {
   value      = var.cron_secret
   target     = ["production", "preview"]
   sensitive  = true
+}
+
+# Redundante con las variables de sistema, pero deja la intencion explicita:
+# es la unica forma de que Auth.js confie en el host si alguien las desactiva.
+resource "vercel_project_environment_variable" "auth_trust_host" {
+  project_id = vercel_project.web.id
+  key        = "AUTH_TRUST_HOST"
+  value      = "true"
+  target     = ["production", "preview"]
+  sensitive  = false
 }
