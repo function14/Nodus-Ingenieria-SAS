@@ -24,3 +24,9 @@ variable "auth_secret" {
   type      = string
   sensitive = true
 }
+
+variable "cron_secret" {
+  type        = string
+  description = "Secreto que protege /api/cron/sla frente a disparos externos."
+  sensitive   = true
+}

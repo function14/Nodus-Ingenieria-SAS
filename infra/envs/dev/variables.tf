@@ -27,3 +27,9 @@ variable "git_repo" {
   description = "owner/repo de GitHub a conectar en Vercel (opcional)."
   default     = null
 }
+
+variable "neon_org_id" {
+  type        = string
+  description = "Organizacion de Neon (org-xxxx). Requerido por la API al crear el proyecto."
+  default     = null
+}

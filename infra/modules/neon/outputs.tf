@@ -8,3 +8,9 @@ output "connection_uri" {
   value       = neon_project.this.connection_uri
   sensitive   = true
 }
+
+output "connection_uri_pooler" {
+  description = "Cadena de conexion via pooler: la que debe usar la app en serverless."
+  value       = neon_project.this.connection_uri_pooler
+  sensitive   = true
+}

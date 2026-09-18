@@ -6,6 +6,10 @@ terraform {
       source  = "kislerdm/neon"
       version = ">= 0.6.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.0.0"
+    }
     vercel = {
       source  = "vercel/vercel"
       version = ">= 1.0.0"

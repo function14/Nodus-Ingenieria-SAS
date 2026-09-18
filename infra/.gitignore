@@ -9,3 +9,7 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# planes guardados (contienen valores sensibles)
+tfplan*
+*.tfplan
