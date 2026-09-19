@@ -9,6 +9,8 @@ import {
   MASKED_COMPANY,
   MASKED_TITLE,
   notificationScope,
+  eligibleForBolsa,
+  canSetConsultantStatus,
   type Actor,
 } from './index';
 
@@ -159,5 +161,93 @@ describe('maskCommunicationVars (difusion: una fila, varias lecturas)', () => {
     for (const actor of [advisory, admin, mipyme]) {
       expect(maskCommunicationVars(actor, unassigned, vars).empresa).toBe('Agricola del Sur');
     }
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* F4 - guarda de elegibilidad de la bolsa                               */
+/* ------------------------------------------------------------------ */
+describe('eligibleForBolsa (RF-027/028, la guarda vive en rbac)', () => {
+  const habilitado = {
+    status: 'habilitado',
+    specialtyCodes: ['finanzas'],
+    levelCode: 'senior',
+    availability: 'disponible',
+  };
+  const finanzasMedia = { areaCode: 'finanzas', complexityLevel: 'media' };
+
+  it('un consultor no habilitado ve cero casos', () => {
+    expect(
+      eligibleForBolsa({ ...habilitado, status: 'registrado' }, finanzasMedia),
+    ).toBe(false);
+    expect(
+      eligibleForBolsa({ ...habilitado, status: 'en_validacion' }, finanzasMedia),
+    ).toBe(false);
+  });
+
+  it('habilitado con la especialidad y nivel suficiente ve el caso', () => {
+    expect(eligibleForBolsa(habilitado, finanzasMedia)).toBe(true);
+    // complejidad alta <= senior: también entra
+    expect(
+      eligibleForBolsa(habilitado, { areaCode: 'finanzas', complexityLevel: 'alta' }),
+    ).toBe(true);
+  });
+
+  it('no ve casos de areas que no son su especialidad', () => {
+    expect(eligibleForBolsa(habilitado, { areaCode: 'legal', complexityLevel: 'media' })).toBe(false);
+  });
+
+  it('si no declara especialidades, queda abierto al area del caso', () => {
+    expect(
+      eligibleForBolsa({ ...habilitado, specialtyCodes: [] }, { areaCode: 'legal', complexityLevel: 'media' }),
+    ).toBe(true);
+  });
+
+  it('el nivel limita la complejidad: semi-senior no entra a alta', () => {
+    expect(
+      eligibleForBolsa(
+        { ...habilitado, levelCode: 'semi-senior' },
+        { areaCode: 'finanzas', complexityLevel: 'alta' },
+      ),
+    ).toBe(false);
+  });
+
+  it('ocupado no se postula aunque este habilitado', () => {
+    expect(eligibleForBolsa({ ...habilitado, availability: 'ocupado' }, finanzasMedia)).toBe(false);
+  });
+});
+
+describe('canSetConsultantStatus (workflow-as-data del consultor)', () => {
+  it('sigue el ciclo registrado -> en_validacion -> habilitado', () => {
+    expect(canSetConsultantStatus('registrado', 'en_validacion')).toBe(true);
+    expect(canSetConsultantStatus('en_validacion', 'habilitado')).toBe(true);
+    expect(canSetConsultantStatus('habilitado', 'condicionado')).toBe(true);
+    expect(canSetConsultantStatus('condicionado', 'habilitado')).toBe(true);
+  });
+
+  it('salta etapas y retrocede de forma ilegal', () => {
+    expect(canSetConsultantStatus('registrado', 'habilitado')).toBe(false);
+    expect(canSetConsultantStatus('habilitado', 'registrado')).toBe(false);
+    expect(canSetConsultantStatus('inactivo', 'habilitado')).toBe(false);
+  });
+});
+
+describe('canPerform (acciones del ciclo de vida, F4)', () => {
+  it('cambiar estado del consultor es de PMO/Admin', () => {
+    expect(canPerform(advisory, 'consultant.setStatus')).toBe(true);
+    expect(canPerform(admin, 'consultant.setStatus')).toBe(true);
+    expect(canPerform(consultor, 'consultant.setStatus')).toBe(false);
+  });
+
+  it('registrar su propia ficha es del consultor', () => {
+    expect(canPerform(consultor, 'consultant.profile')).toBe(true);
+    expect(canPerform(advisory, 'consultant.profile')).toBe(false);
+  });
+
+  it('pedir aclaracion estructurada es de PMO/Admin', () => {
+    expect(canPerform(advisory, 'case.clarification')).toBe(true);
+    expect(canPerform(admin, 'case.clarification')).toBe(true);
+    expect(canPerform(consultor, 'case.clarification')).toBe(false);
+    expect(canPerform(mipyme, 'case.clarification')).toBe(false);
   });
 });

@@ -238,12 +238,27 @@ export async function processOutbox(tenantId: string): Promise<number> {
           event.type === 'CASE_CREATED' ? ['caso_creado'] : (p.commEvents ?? []);
         let chainTail: { seq: number; rowHash: string | null } | null = null;
         for (const code of commCodes) {
+          // Variables del evento: la solicitud de aclaracion (RF-035/T3A) se
+          // agrega desde la submission estructurada guardada en el caso.
+          const vars: Record<string, string> = {};
+          if (code === 'solicitud_aclaracion') {
+            const sub = await tx.formSubmission.findFirst({
+              where: { caseId: p.caseId, templateVersion: { template: { code: 'T3A' } } },
+              orderBy: { version: 'desc' },
+            });
+            const items = (sub?.data ?? {}) as { items?: Array<{ campo?: string; solicitud?: string }> };
+            vars.solicitud = (items.items ?? [])
+              .map((i) => i.solicitud ?? '')
+              .filter(Boolean)
+              .join('; ');
+          }
           const res = await notify({
             prisma: tx,
             tenantId,
             eventType: code,
             caseId: p.caseId,
             actorId: p.actorId,
+            vars,
             chainTail,
           });
           chainTail = res.chainTail;

@@ -1,9 +1,13 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import { computeRowHash } from '@nodus/db';
+import { computeRowHash, appendAuditRow } from '@nodus/db';
 import { validateSubmission } from '@nodus/forms';
 import { applyCaseMask } from '@nodus/rbac';
-import { caseByIdInputSchema, caseListInputSchema } from '@nodus/schemas';
+import {
+  caseByIdInputSchema,
+  caseListInputSchema,
+  clarificationInputSchema,
+} from '@nodus/schemas';
 import { executeTransition, processOutbox, WorkflowError } from '@nodus/workflow';
 import { actionProcedure, resourceProcedure, router } from '../trpc';
 
@@ -220,6 +224,10 @@ export const casesRouter = router({
             title: titulo,
             companyId: input.companyId,
             currentStateId: initial.id,
+            // Area y complejidad del caso (LOV de la plantilla T1): son las que
+            // la bolsa contrasta con la ficha del consultor (eligibleForBolsa).
+            areaCode: typeof input.data.area === 'string' ? input.data.area : null,
+            complexityLevel: typeof input.data.complejidad === 'string' ? input.data.complejidad : 'media',
           },
         });
 
@@ -279,5 +287,75 @@ export const casesRouter = router({
 
       await processOutbox(ctx.user.tenantId);
       return result;
+    }),
+
+  // RF-035 / T3A: solicitud de aclaracion ESTRUCTURADA. Guarda la submission
+  // (items tipados) sobre el caso, audita el pedido y devuelve el caso a la
+  // empresa con la transicion `devolver_a_cliente` (su commEvent TCOM2 se
+  // enriquece en processOutbox con la variable {solicitud}).
+  requestClarification: actionProcedure('case.clarification')
+    .input(clarificationInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const c = await ctx.prisma.case.findFirst({
+        where: { id: input.caseId, tenantId: ctx.user.tenantId },
+        select: { id: true, currentState: { select: { code: true, isInitial: true } } },
+      });
+      if (!c) throw new TRPCError({ code: 'NOT_FOUND' });
+      if (c.currentState.code !== 'EN_REVISION') {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Solo se pide aclaracion en EN_REVISION' });
+      }
+
+      const tv = await ctx.prisma.templateVersion.findFirst({
+        where: { template: { code: 'T3A' }, isActive: true },
+        orderBy: { version: 'desc' },
+      });
+      if (!tv) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Plantilla T3A no encontrada' });
+      const check = validateSubmission(tv.jsonSchema, { items: input.items });
+      if (!check.valid) throw new TRPCError({ code: 'BAD_REQUEST', message: check.errors.join('; ') });
+
+      const submission = await ctx.prisma.$transaction(async (tx) => {
+        const sub = await tx.formSubmission.create({
+          data: {
+            templateVersionId: tv.id,
+            caseId: input.caseId,
+            version: 1,
+            data: { items: input.items } as object,
+            submittedById: ctx.user.id,
+          },
+        });
+        await appendAuditRow({
+          prisma: tx,
+          tenantId: ctx.user.tenantId,
+          actorId: ctx.user.id,
+          caseId: input.caseId,
+          action: 'ACLARACION_SOLICITADA',
+          entityType: 'FormSubmission',
+          entityId: sub.id,
+          fromState: 'EN_REVISION',
+          toState: 'CREADO',
+          payload: { cantidad: input.items.length, solicitud: input.items.map((i) => i.solicitud) },
+        });
+        return sub;
+      });
+
+      try {
+        const result = await executeTransition({
+          caseId: input.caseId,
+          transitionCode: 'devolver_a_cliente',
+          actor: {
+            id: ctx.user.id,
+            role: ctx.user.role,
+            tenantId: ctx.user.tenantId,
+            companyId: ctx.user.companyId,
+          },
+        });
+        await processOutbox(ctx.user.tenantId);
+        return { submissionId: submission.id, items: input.items, result };
+      } catch (e) {
+        if (e instanceof WorkflowError) {
+          throw new TRPCError({ code: workflowCodeToTrpc[e.code] ?? 'BAD_REQUEST', message: e.message });
+        }
+        throw e;
+      }
     }),
 });

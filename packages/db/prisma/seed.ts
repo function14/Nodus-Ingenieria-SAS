@@ -18,15 +18,16 @@ function slug(s: string): string {
 // comparten seed, motor de workflow y verifyChain.
 
 async function main() {
-  await prisma.notification.deleteMany();
-  await prisma.postulation.deleteMany();
+await prisma.notification.deleteMany();
   await prisma.slaTimer.deleteMany();
   await prisma.formSubmission.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.domainEvent.deleteMany();
   await prisma.documentVersion.deleteMany();
   await prisma.document.deleteMany();
+  await prisma.postulation.deleteMany();
   await prisma.case.deleteMany();
+  await prisma.consultant.deleteMany();
   await prisma.company.deleteMany();
   await prisma.slaRule.deleteMany();
   await prisma.templateVersion.deleteMany();
@@ -57,10 +58,13 @@ async function main() {
 
   const pwd = bcrypt.hashSync('demo1234', 10);
   const userData = [
-    { email: 'advisory@demo.nodus', name: 'Ana Advisory', role: 'advisory' },
-    { email: 'consultor@demo.nodus', name: 'Carlos Consultor', role: 'consultor' },
-    { email: 'mipyme@demo.nodus', name: 'Maria Mipyme', role: 'mipyme' },
-    { email: 'admin@demo.nodus', name: 'Andres Admin', role: 'admin' },
+    { key: 'advisory', email: 'advisory@demo.nodus', name: 'Ana Advisory', role: 'advisory' },
+    { key: 'consultor', email: 'consultor@demo.nodus', name: 'Carlos Consultor', role: 'consultor' },
+    // Segundo consultor para el ciclo de vida del consultor (F4): no tiene
+    // ficha habilitada hasta que el flujo la habilite (RF-027/028).
+    { key: 'consultor2', email: 'consultor2@demo.nodus', name: 'Diana Consultora', role: 'consultor' },
+    { key: 'mipyme', email: 'mipyme@demo.nodus', name: 'Maria Mipyme', role: 'mipyme' },
+    { key: 'admin', email: 'admin@demo.nodus', name: 'Andres Admin', role: 'admin' },
   ];
   const users: Record<string, string> = {};
   for (const u of userData) {
@@ -73,7 +77,7 @@ async function main() {
         roleId: roles[u.role],
       },
     });
-    users[u.role] = user.id;
+    users[u.key] = user.id;
   }
 
   const lov = [
@@ -82,6 +86,8 @@ async function main() {
     { code: 'urgencia', name: 'Urgencia', items: ['Baja', 'Media', 'Alta'] },
     { code: 'impacto', name: 'Impacto', items: ['Bajo', 'Medio', 'Alto'] },
     { code: 'nivel_consultor', name: 'Nivel de consultor', items: ['Junior', 'Semi-Senior', 'Senior'] },
+    { code: 'estado_consultor', name: 'Estado del consultor', items: ['Registrado', 'En validacion', 'Habilitado', 'Condicionado', 'Suspendido', 'Inactivo'] },
+    { code: 'disponibilidad_consultor', name: 'Disponibilidad del consultor', items: ['Disponible', 'Ocupado'] },
   ];
   for (const g of lov) {
     const group = await prisma.lovGroup.create({ data: { code: g.code, name: g.name } });
@@ -170,12 +176,93 @@ async function main() {
           titulo: { type: 'string', title: 'Titulo del caso', minLength: 3 },
           area: { type: 'string', title: 'Area', enum: ['estrategia', 'finanzas', 'operaciones', 'marketing', 'legal', 'tecnologia'] },
           urgencia: { type: 'string', title: 'Urgencia', enum: ['baja', 'media', 'alta'], default: 'media' },
+          complejidad: { type: 'string', title: 'Complejidad', enum: ['baja', 'media', 'alta'], default: 'media' },
           descripcion: { type: 'string', title: 'Descripcion de la necesidad', minLength: 10 },
         },
       },
       uiSchema: { descripcion: { widget: 'textarea' } },
     },
   });
+
+  // Plantillas del ciclo del consultor (F4): TC1 registro, TC2 debida
+  // diligencia, TC3 clasificacion. Igual que T1, son DATO (jsonSchema) que el
+  // flujo de habilitacion rellena; su gobierno tambien es datos.
+  const consultingTemplates = [
+    {
+      code: 'TC1',
+      name: 'Registro del consultor',
+      jsonSchema: {
+        type: 'object',
+        required: ['nombre', 'especialidades', 'nivel', 'disponibilidad'],
+        properties: {
+          nombre: { type: 'string', title: 'Nombre completo', minLength: 3 },
+          especialidades: { type: 'array', title: 'Especialidades', minItems: 1, items: { type: 'string', enum: ['estrategia', 'finanzas', 'operaciones', 'marketing', 'legal', 'tecnologia'] } },
+          nivel: { type: 'string', title: 'Nivel', enum: ['junior', 'semi-senior', 'senior'] },
+          disponibilidad: { type: 'string', title: 'Disponibilidad', enum: ['disponible', 'ocupado'], default: 'disponible' },
+        },
+      },
+      uiSchema: {},
+    },
+    {
+      code: 'TC2',
+      name: 'Debida diligencia del consultor',
+      jsonSchema: {
+        type: 'object',
+        required: ['experiencia_anios', 'referencias', 'disponibilidad'],
+        properties: {
+          experiencia_anios: { type: 'integer', title: 'Anios de experiencia', minimum: 0 },
+          referencias: { type: 'string', title: 'Referencias', minLength: 5 },
+          disponibilidad: { type: 'string', title: 'Disponibilidad', enum: ['disponible', 'ocupado'], default: 'disponible' },
+        },
+      },
+      uiSchema: { referencias: { widget: 'textarea' } },
+    },
+    {
+      code: 'TC3',
+      name: 'Clasificacion y habilitacion',
+      jsonSchema: {
+        type: 'object',
+        required: ['nivel', 'especialidades'],
+        properties: {
+          nivel: { type: 'string', title: 'Nivel asignado', enum: ['junior', 'semi-senior', 'senior'] },
+          especialidades: { type: 'array', title: 'Especialidades habilitadas', minItems: 1, items: { type: 'string', enum: ['estrategia', 'finanzas', 'operaciones', 'marketing', 'legal', 'tecnologia'] } },
+        },
+      },
+      uiSchema: {},
+    },
+    {
+      // RF-035: la solicitud de aclaracion estructurada que la PMO envia a la
+      // empresa cuando el caso esta en revision (transicion devolver_a_cliente).
+      code: 'T3A',
+      name: 'Solicitud de aclaracion estructurada',
+      jsonSchema: {
+        type: 'object',
+        required: ['items'],
+        properties: {
+          items: {
+            type: 'array',
+            title: 'Items de aclaracion',
+            minItems: 1,
+            items: {
+              type: 'object',
+              required: ['solicitud'],
+              properties: {
+                campo: { type: 'string', title: 'Campo referido', maxLength: 80 },
+                solicitud: { type: 'string', title: 'Solicitud', minLength: 5, maxLength: 500 },
+              },
+            },
+          },
+        },
+      },
+      uiSchema: {},
+    },
+  ];
+  for (const tpl of consultingTemplates) {
+    const t = await prisma.template.create({ data: { code: tpl.code, name: tpl.name, kind: 'form' } });
+    await prisma.templateVersion.create({
+      data: { templateId: t.id, version: 1, jsonSchema: tpl.jsonSchema, uiSchema: tpl.uiSchema },
+    });
+  }
 
   // Plantillas de comunicaciones gobernadas (F1): viven como DATO, nunca como
   // literales en el codigo del motor.
@@ -377,14 +464,38 @@ async function main() {
     data: { companyId: companies['RetailModa'] },
   });
 
+  // Fichas del ciclo de vida del consultor (F4). Carlos esta HABILITADO
+  // (finanzas+tecnologia, senior); Diana esta REGISTRADA y ve la bolsa vacia
+  // hasta que el flujo la habilite (criterio de aceptacion F4).
+  const consultantData = [
+    { key: 'consultor', humanId: 'CON-000001', specialties: [], level: 'senior', availability: 'disponible', status: 'habilitado', enabledAt: new Date() },
+    { key: 'consultor2', humanId: 'CON-000002', specialties: [], level: null, availability: 'disponible', status: 'registrado', enabledAt: null },
+  ];
+  const consultants: Record<string, string> = {};
+  for (const kc of consultantData) {
+    const row = await prisma.consultant.create({
+      data: {
+        tenantId: tenant.id,
+        userId: users[kc.key],
+        humanId: kc.humanId,
+        specialtyCodes: kc.specialties,
+        levelCode: kc.level,
+        availability: kc.availability,
+        status: kc.status,
+        enabledAt: kc.enabledAt,
+      },
+    });
+    consultants[kc.key] = row.id;
+  }
+
   const caseData = [
-    { humanId: 'NOD-2026-001', company: 'FoodTech SAS', state: 'CERRADO', assignee: 'consultor' },
-    { humanId: 'NOD-2026-002', company: 'RetailModa', state: 'EN_EJECUCION', assignee: 'consultor' },
-    { humanId: 'NOD-2026-003', company: 'Salud Total', state: 'EN_POSTULACION', assignee: null },
-    { humanId: 'NOD-2026-004', company: 'Ingenieria Nova', state: 'CLASIFICADO', assignee: null },
-    { humanId: 'NOD-2026-005', company: 'Comercial Andes', state: 'CLASIFICADO', assignee: null },
-    { humanId: 'NOD-2026-008', company: 'Agricola del Sur', state: 'CREADO', assignee: null },
-    { humanId: 'NOD-2026-009', company: 'Transportes Rapidos', state: 'CREADO', assignee: null },
+    { humanId: 'NOD-2026-001', company: 'FoodTech SAS', state: 'CERRADO', assignee: 'consultor', area: 'finanzas', nivel: 'alta' },
+    { humanId: 'NOD-2026-002', company: 'RetailModa', state: 'EN_EJECUCION', assignee: 'consultor', area: 'operaciones', nivel: 'media' },
+    { humanId: 'NOD-2026-003', company: 'Salud Total', state: 'EN_POSTULACION', assignee: null, area: 'finanzas', nivel: 'media' },
+    { humanId: 'NOD-2026-004', company: 'Ingenieria Nova', state: 'CLASIFICADO', assignee: null, area: 'tecnologia', nivel: 'alta' },
+    { humanId: 'NOD-2026-005', company: 'Comercial Andes', state: 'CLASIFICADO', assignee: null, area: 'marketing', nivel: 'baja' },
+    { humanId: 'NOD-2026-008', company: 'Agricola del Sur', state: 'CREADO', assignee: null, area: 'operaciones', nivel: 'media' },
+    { humanId: 'NOD-2026-009', company: 'Transportes Rapidos', state: 'CREADO', assignee: null, area: 'operaciones', nivel: 'media' },
   ];
 
   let seq = 0;
@@ -400,6 +511,8 @@ async function main() {
         companyId: companies[c.company],
         currentStateId: states[c.state],
         assignedUserId: c.assignee ? users[c.assignee] : null,
+        areaCode: c.area,
+        complexityLevel: c.nivel,
       },
     });
     createdCases[c.humanId] = created.id;
@@ -557,11 +670,12 @@ async function main() {
   console.log('  tenant:', tenant.slug, '(' + tenant.name + ')');
   console.log('  roles:', Object.keys(roles).length, '| usuarios:', Object.keys(users).length);
   console.log('  estados:', stateData.length, '| transiciones:', transitions.length, '| SLA rules:', slaData.length);
-  console.log('  plantillas comunicacion:', commTemplates.length, '| reglas de comunicacion:', commRules.length);
+  console.log('  plantillas comunicacion:', commTemplates.length, '| reglas de comunicacion:', commRules.length, '| plantillas F4:', consultingTemplates.length);
   console.log('  empresas:', companyNames.length, '| casos:', caseData.length);
+  console.log('  consultores:', consultantData.length, '(habilitado: Carlos CON-000001, registrado: Diana CON-000002)');
   console.log('  documentos demo:', 1, '| versiones entregable demo:', 2);
   console.log('  bitacora hash-chain:', seq, 'registros | ultimo hash:', (prevHash ?? '').slice(0, 16) + '...');
-  console.log('  login demo -> advisory@demo.nodus / demo1234 (y consultor@, mipyme@, admin@)');
+  console.log('  login demo -> advisory@demo.nodus / demo1234 (y consultor@, consultor2@, mipyme@, admin@)');
 }
 
 main()

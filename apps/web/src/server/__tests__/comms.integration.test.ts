@@ -60,6 +60,7 @@ beforeAll(async () => {
   const load = async (roleCode: string): Promise<TestUser> => {
     const u = await prisma.user.findFirstOrThrow({
       where: { tenantId: tenant.id, role: { code: roleCode } },
+      orderBy: { createdAt: 'asc' },
     });
     return {
       id: u.id,

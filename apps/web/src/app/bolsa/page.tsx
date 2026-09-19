@@ -52,6 +52,7 @@ export default function BolsaPage() {
   const role = session?.user?.role;
   const utils = trpc.useUtils();
   const bolsaQ = trpc.postulations.bolsa.useQuery();
+  const miPerfilQ = trpc.consultants.my.useQuery(undefined, { enabled: role === 'consultor' });
 
   const apply = trpc.postulations.postular.useMutation({
     onSuccess: () => utils.postulations.bolsa.invalidate(),
@@ -66,6 +67,18 @@ export default function BolsaPage() {
           <CardContent>
             <p className="text-sm text-ink-muted pt-4">
               La bolsa es para consultores (postularse) y Advisory/PMO (asignar).
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {role === 'consultor' && miPerfilQ.data?.status !== 'habilitado' && (
+        <Card>
+          <CardContent>
+            <p className="text-sm text-ink-muted pt-4">
+              Tu perfil consultor está <strong>{miPerfilQ.data?.status ?? 'sin ficha'}</strong>.
+              Solo ves casos cuando estás <strong>HABILITADO</strong> (RF-028): debes completar tu
+              experiencia desde tu perfil y el equipo te habilita.
             </p>
           </CardContent>
         </Card>
@@ -89,6 +102,9 @@ export default function BolsaPage() {
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               <p className="text-sm text-ink-muted">{c.title}</p>
+              <p className="text-xs text-ink-muted">
+                Area: <strong>{c.area}</strong> · Complejidad: <strong>{c.complejidad}</strong>
+              </p>
               <p className="text-xs text-ink-muted">{c.postulantes} postulante(s)</p>
 
               {role === 'consultor' && (

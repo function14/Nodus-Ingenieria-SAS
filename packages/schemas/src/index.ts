@@ -81,3 +81,48 @@ export const documentDownloadInputSchema = z.object({
   version: z.number().int().positive().optional(),
 });
 export type DocumentDownloadInput = z.infer<typeof documentDownloadInputSchema>;
+
+/** Nivel del consultor (codigos LOV `nivel_consultor`). */
+export const consultantLevelSchema = z.enum(['junior', 'semi-senior', 'senior']);
+export type ConsultantLevel = z.infer<typeof consultantLevelSchema>;
+
+/** Disponibilidad del consultor (codigos LOV `disponibilidad_consultor`). */
+export const consultantAvailabilitySchema = z.enum(['disponible', 'ocupado']);
+export type ConsultantAvailability = z.infer<typeof consultantAvailabilitySchema>;
+
+/** Ficha profesional del consultor (RF-030: registrar disponibilidad y experiencia). */
+export const consultantProfileSchema = z.object({
+  specialtyCodes: z.array(z.string().min(1).max(40)).max(10).default([]),
+  levelCode: consultantLevelSchema.nullable(),
+  availability: consultantAvailabilitySchema,
+});
+export type ConsultantProfileInput = z.infer<typeof consultantProfileSchema>;
+
+/** Codigos LOV `estado_consultor` (workflow-as-data del consultor). */
+export const consultantStatusSchema = z.enum([
+  'registrado',
+  'en_validacion',
+  'habilitado',
+  'condicionado',
+  'suspendido',
+  'inactivo',
+]);
+export type ConsultantStatus = z.infer<typeof consultantStatusSchema>;
+
+/**
+ * Solicitud de aclaracion estructurada (RF-035, plantilla T3A). Los items son
+ * DATO tipado: campo referido y solicitud concreta, uno por linea.
+ */
+export const clarificationInputSchema = z.object({
+  caseId: z.string().min(1),
+  items: z
+    .array(
+      z.object({
+        campo: z.string().max(80).optional(),
+        solicitud: z.string().min(5).max(500),
+      }),
+    )
+    .min(1)
+    .max(20),
+});
+export type ClarificationInput = z.infer<typeof clarificationInputSchema>;

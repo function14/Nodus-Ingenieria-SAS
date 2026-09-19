@@ -40,7 +40,10 @@ export type Resource = keyof typeof RESOURCE_ACCESS;
 export const ACTION_ACCESS = {
   'case.create': ['advisory', 'admin', 'mipyme'],
   'case.assign': ['advisory'],
+  'case.clarification': ['advisory', 'admin'],
   'postulation.create': ['consultor'],
+  'consultant.setStatus': ['advisory', 'admin'],
+  'consultant.profile': ['consultor'],
   'sla.sweep': ['advisory', 'admin'],
   'document.upload': ['advisory', 'admin', 'consultor', 'mipyme'],
 } as const satisfies Record<string, readonly Role[]>;
@@ -183,4 +186,69 @@ export function notificationScope(actor: Actor): NotificationScope {
     return { kind: 'ownCompany', companyId: actor.companyId };
   }
   return { kind: 'ownOnly' };
+}
+
+/* ------------------------------------------------------------------ */
+/* Ciclo de vida del consultor (F4, RF-027/028/030)                     */
+/* ------------------------------------------------------------------ */
+
+/** Rango del nivel del consultor (LOV `nivel_consultor`, dato en rbac). */
+export const LEVEL_RANK: Record<string, number> = {
+  junior: 1,
+  'semi-senior': 2,
+  senior: 3,
+};
+
+/** Rango de la complejidad del caso (LOV `complejidad`, dato en rbac). */
+export const COMPLEXITY_RANK: Record<string, number> = {
+  baja: 1,
+  media: 2,
+  alta: 3,
+};
+
+/**
+ * Guarda de la bolsa (RF-027/028). La regla UNICA de elegibilidad del
+ * consultor vive aqui, nunca en un resolver:
+ *   status === 'habilitado'
+ *   && availability !== 'ocupado'
+ *   && (sin especialidades declaradas O su especialidad contiene el area del caso)
+ *   && (nivel del consultor >= complejidad del caso)
+ */
+export function eligibleForBolsa(
+  consultant: {
+    status: string;
+    specialtyCodes: string[];
+    levelCode?: string | null;
+    availability: string;
+  },
+  kase: { areaCode: string | null; complexityLevel: string | null },
+): boolean {
+  if (consultant.status !== 'habilitado') return false;
+  if (consultant.availability === 'ocupado') return false;
+  const bySpecialty =
+    consultant.specialtyCodes.length === 0 ||
+    (kase.areaCode !== null && consultant.specialtyCodes.includes(kase.areaCode));
+  if (!bySpecialty) return false;
+  const level = consultant.levelCode ? LEVEL_RANK[consultant.levelCode] : 0;
+  const complexity = kase.complexityLevel ? COMPLEXITY_RANK[kase.complexityLevel] : 0;
+  if (complexity > 0 && level > 0 && complexity > level) return false;
+  return true;
+}
+
+/**
+ * Ciclo de estado del consultor como DATO (workflow-as-data, F4):
+ *   registrado -> en_validacion -> habilitado -> (condicionado/suspendido/inactivo)
+ * Un paso invalido se rechaza como FORBIDDEN sin tocar la DB.
+ */
+export const CONSULTANT_STATUS_TRANSITIONS: Record<string, readonly string[]> = {
+  registrado: ['en_validacion'],
+  en_validacion: ['habilitado', 'condicionado', 'suspendido', 'inactivo'],
+  habilitado: ['condicionado', 'suspendido', 'inactivo'],
+  condicionado: ['habilitado', 'suspendido', 'inactivo'],
+  suspendido: ['en_validacion', 'inactivo'],
+  inactivo: [],
+} as const;
+
+export function canSetConsultantStatus(from: string, to: string): boolean {
+  return (CONSULTANT_STATUS_TRANSITIONS[from] ?? []).includes(to);
 }

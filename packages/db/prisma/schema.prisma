@@ -23,6 +23,7 @@ model Tenant {
   notifications Notification[]
   postulations  Postulation[]
   documents    Document[]
+  consultants  Consultant[]
 }
 
 // ---------------- RBAC ----------------
@@ -53,6 +54,7 @@ model User {
   postulations  Postulation[]
   company       Company?         @relation(fields: [companyId], references: [id])
   documentUploads DocumentVersion[]
+  consultant    Consultant?
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -135,6 +137,10 @@ model Case {
   companyId      String
   currentStateId String
   assignedUserId String?
+  /// Area del caso (codigo LOV `areas`). Guarda de elegibilidad de la bolsa.
+  areaCode       String?
+  /// Complejidad del caso (codigo LOV `complejidad`). Guarda de nivel minimo.
+  complexityLevel String?
   version        Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -374,4 +380,38 @@ model DocumentVersion {
 
   @@unique([documentId, version])
   @@index([documentId])
+}
+
+// ---------------- Ciclo de vida del consultor (F4, RF-027/028/030/035) ----------------
+// Un consultor es un `User` con rol + una ficha de clasificacion profesional.
+// Todo lo que decide la bolsa es DATO derivado de esta ficha:
+//   status como LOV `estado_consultor` (NO enum) con ciclo workflow-as-data:
+//   registrado -> en_validacion -> habilitado -> (condicionado/suspendido/inactivo)
+//   (ver CONSULTANT_STATUS_TRANSITIONS en @nodus/rbac).
+// La regla de elegibilidad vive en @nodus/rbac (eligibleForBolsa), nunca en un
+// resolver.
+model Consultant {
+  id     String @id @default(cuid())
+  tenantId String
+  userId String @unique
+  /// Identificador de negocio ("CON-000145").
+  humanId String
+  /// Codigos LOV `areas`: especialidades del consultor.
+  specialtyCodes String[]
+  /// Codigo LOV `nivel_consultor` (junior | semi-senior | senior).
+  levelCode String?
+  /// Codigo LOV `disponibilidad_consultor` (disponible | ocupado).
+  availability String @default("disponible")
+  /// Codigo LOV `estado_consultor` (registrado | en_validacion | habilitado | ...).
+  status String @default("registrado")
+  /// Fecha en que paso a habilitado por primera vez.
+  enabledAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([tenantId, humanId])
+  @@index([tenantId, status])
 }

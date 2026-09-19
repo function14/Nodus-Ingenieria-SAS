@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { notify } from '@nodus/notifications';
+import { eligibleForBolsa } from '@nodus/rbac';
 import { actionProcedure, resourceProcedure, router } from '../trpc';
 
 export const postulationsRouter = router({
@@ -15,6 +16,18 @@ export const postulationsRouter = router({
       if (c.currentState.code !== 'EN_POSTULACION') {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'El caso no esta en bolsa (EN_POSTULACION)' });
       }
+
+      // RF-027/028: habilitacion previa, la guarda completa vive en rbac.
+      const consultant = await ctx.prisma.consultant.findUnique({
+        where: { userId: ctx.user.id },
+      });
+      if (!consultant || !eligibleForBolsa(
+        { status: consultant.status, specialtyCodes: consultant.specialtyCodes, levelCode: consultant.levelCode, availability: consultant.availability },
+        { areaCode: c.areaCode, complexityLevel: c.complexityLevel },
+      )) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Tu perfil consultor no esta habilitado para este caso' });
+      }
+
       const existing = await ctx.prisma.postulation.findUnique({
         where: { caseId_consultorId: { caseId: input.caseId, consultorId: ctx.user.id } },
       });
@@ -64,11 +77,38 @@ export const postulationsRouter = router({
       include: { company: true, postulations: true },
       orderBy: { updatedAt: 'desc' },
     });
-    return cases.map((c) => ({
+
+    // Filtro de elegibilidad SIEMPRE en @nodus/rbac (RF-027/028): el consultor
+    // solo ve los casos que encajan con su ficha habil (estado + especialidad +
+    // nivel + disponibilidad). Advisory/PMO ven la bolsa completa.
+    const visible =
+      ctx.user.role === 'consultor'
+        ? await (async () => {
+            const consultant = await ctx.prisma.consultant.findUnique({
+              where: { userId: ctx.user.id },
+            });
+            if (!consultant) return [] as typeof cases;
+            return cases.filter((c) =>
+              eligibleForBolsa(
+                {
+                  status: consultant.status,
+                  specialtyCodes: consultant.specialtyCodes,
+                  levelCode: consultant.levelCode,
+                  availability: consultant.availability,
+                },
+                { areaCode: c.areaCode, complexityLevel: c.complexityLevel },
+              ),
+            );
+          })()
+        : cases;
+
+    return visible.map((c) => ({
       id: c.id,
       humanId: c.humanId,
       company: c.company.name,
       title: c.title,
+      area: c.areaCode,
+      complejidad: c.complexityLevel,
       postulantes: c.postulations.length,
       yaPostulado: c.postulations.some((p) => p.consultorId === ctx.user.id),
     }));
