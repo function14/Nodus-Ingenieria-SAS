@@ -19,6 +19,15 @@ export interface StorageBackend {
   putObjectUrl(objectKey: string): Promise<string>;
   /** URL firmada de descarga (GET). */
   getObjectUrl(objectKey: string): Promise<string>;
+  /**
+   * Lee el objeto en el servidor. Lo necesita la confirmacion de subida para
+   * recalcular el sha256: un checksum declarado por el cliente y nunca
+   * comprobado no es una garantia de integridad, es una nota adhesiva.
+   * Devuelve null si el objeto no existe.
+   */
+  getObject(objectKey: string): Promise<Buffer | null>;
+  /** Escribe el objeto desde el servidor (seed y utilidades). */
+  putObject(objectKey: string, body: Buffer, mime?: string): Promise<void>;
 }
 
 export interface StorageConfig {
@@ -93,7 +102,12 @@ export function storageConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Stor
   };
 }
 
-export function createS3Storage(config: StorageConfig): StorageBackend {
+/**
+ * Backend de objetos. El proveedor decidido es **Cloudflare R2**; se habla con
+ * el por su API S3-compatible, que es tambien la que expone MinIO, el
+ * sustituto de desarrollo local. "S3" aqui nombra el PROTOCOLO, nunca AWS.
+ */
+export function createObjectStorage(config: StorageConfig): StorageBackend {
   const client = new MinioClient({
     endPoint: config.endPoint,
     port: config.port,
@@ -123,6 +137,23 @@ export function createS3Storage(config: StorageConfig): StorageBackend {
     async getObjectUrl(objectKey) {
       await ensureBucketOnce();
       return client.presignedGetObject(config.bucket, objectKey, 15 * 60);
+    },
+    async getObject(objectKey) {
+      await ensureBucketOnce();
+      try {
+        const stream = await client.getObject(config.bucket, objectKey);
+        const chunks: Buffer[] = [];
+        for await (const chunk of stream) chunks.push(chunk as Buffer);
+        return Buffer.concat(chunks);
+      } catch {
+        return null; // NoSuchKey u objeto inaccesible
+      }
+    },
+    async putObject(objectKey, body, mime) {
+      await ensureBucketOnce();
+      await client.putObject(config.bucket, objectKey, body, body.length, {
+        'Content-Type': mime ?? 'application/octet-stream',
+      });
     },
   };
 }

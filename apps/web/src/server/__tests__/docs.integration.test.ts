@@ -116,7 +116,7 @@ describe('F3 - repositorio documental (versionado por presigned URL)', () => {
       kind: 'entregable' as const,
       title: 'Entregable Fase 1',
       mime: 'text/plain',
-      sizeBytes: 11 + version,
+      sizeBytes: Buffer.byteLength('contenido-' + version),
       checksum: sha256('contenido-' + version),
       filename: 'entregable-fase-1.txt',
     });
@@ -131,6 +131,11 @@ describe('F3 - repositorio documental (versionado por presigned URL)', () => {
       body: 'contenido-1',
     });
     expect(put1.ok).toBe(true);
+    await callerFor(advisory).documents.confirm({
+      caseId: uploadedCaseId,
+      documentId: v1.documentId,
+      version: 1,
+    });
 
     const v2 = await callerFor(advisory).documents.upload(input(2));
     expect(v2.version).toBe(2);
@@ -142,6 +147,11 @@ describe('F3 - repositorio documental (versionado por presigned URL)', () => {
       body: 'contenido-2',
     });
     expect(put2.ok).toBe(true);
+    await callerFor(advisory).documents.confirm({
+      caseId: uploadedCaseId,
+      documentId: v2.documentId,
+      version: 2,
+    });
 
     const list = await callerFor(advisory).documents.list({ caseId: uploadedCaseId });
     expect(list.length).toBe(1);
@@ -193,7 +203,7 @@ describe('F3 - repositorio documental (versionado por presigned URL)', () => {
 
   it('el entregable subido dispara la comunicacion gobernada TCOM11 (entregable_cargado)', async () => {
     const doc = await prisma.document.findFirstOrThrow({
-      where: { caseId: uploadedCaseId, kind: 'entregable', currentVersion: 2 },
+      where: { caseId: uploadedCaseId, kind: 'entregable' },
     });
     const connected = await prisma.notification.findFirst({
       where: { caseId: doc.caseId, templateCode: 'TCOM11' },

@@ -19,7 +19,8 @@
   },
   "dependencies": {
     "@prisma/client": "^6",
-    "bcryptjs": "^3"
+    "bcryptjs": "^3",
+    "@nodus/storage": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20",

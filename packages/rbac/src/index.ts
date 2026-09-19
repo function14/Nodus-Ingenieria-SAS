@@ -43,6 +43,7 @@ export const ACTION_ACCESS = {
   'case.clarification': ['advisory', 'admin'],
   'postulation.create': ['consultor'],
   'consultant.setStatus': ['advisory', 'admin'],
+  'consultant.classify': ['advisory', 'admin'],
   'consultant.profile': ['consultor'],
   'sla.sweep': ['advisory', 'admin'],
   'document.upload': ['advisory', 'admin', 'consultor', 'mipyme'],
@@ -248,6 +249,19 @@ export const CONSULTANT_STATUS_TRANSITIONS: Record<string, readonly string[]> = 
   suspendido: ['en_validacion', 'inactivo'],
   inactivo: [],
 } as const;
+
+/**
+ * Estados en los que el consultor AUN declara su propia ficha (TC1/TC2, RF-030).
+ * Una vez habilitado, la especialidad y el nivel son clasificacion de advisory
+ * (TC3) y quedan congelados: son dos de los tres insumos de `eligibleForBolsa`,
+ * asi que dejarlos auto-declarables permitiria ampliarse la propia visibilidad.
+ * La disponibilidad si la sigue gobernando el consultor: es operativa.
+ */
+export const SELF_DECLARABLE_STATUSES = ['registrado', 'en_validacion'] as const;
+
+export function canSelfDeclareClassification(status: string): boolean {
+  return (SELF_DECLARABLE_STATUSES as readonly string[]).includes(status);
+}
 
 export function canSetConsultantStatus(from: string, to: string): boolean {
   return (CONSULTANT_STATUS_TRANSITIONS[from] ?? []).includes(to);

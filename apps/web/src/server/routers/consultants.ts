@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { prisma, appendAuditRow } from '@nodus/db';
-import { canSetConsultantStatus } from '@nodus/rbac';
+import { canSelfDeclareClassification, canSetConsultantStatus } from '@nodus/rbac';
 import {
+  consultantClassifySchema,
   consultantProfileSchema,
   consultantStatusSchema,
 } from '@nodus/schemas';
@@ -67,7 +68,8 @@ export const consultantsRouter = router({
             availability: input.availability,
           },
         });
-      } else {
+      } else if (canSelfDeclareClassification(consultant.status)) {
+        // Aun en declaracion (TC1/TC2): puede ajustar su ficha completa.
         consultant = await ctx.prisma.consultant.update({
           where: { id: consultant.id },
           data: {
@@ -75,6 +77,24 @@ export const consultantsRouter = router({
             levelCode: input.levelCode,
             availability: input.availability,
           },
+        });
+      } else {
+        // Ya clasificado: especialidad y nivel son de advisory (TC3). Se
+        // rechaza explicitamente en vez de ignorar en silencio.
+        const cambiaNivel = input.levelCode !== consultant.levelCode;
+        const cambiaEspecialidad =
+          input.specialtyCodes.length !== consultant.specialtyCodes.length ||
+          input.specialtyCodes.some((c) => !consultant!.specialtyCodes.includes(c));
+        if (cambiaNivel || cambiaEspecialidad) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message:
+              'Tu especialidad y nivel los fija Advisory en la clasificacion; solo puedes cambiar tu disponibilidad',
+          });
+        }
+        consultant = await ctx.prisma.consultant.update({
+          where: { id: consultant.id },
+          data: { availability: input.availability },
         });
       }
 
@@ -97,6 +117,39 @@ export const consultantsRouter = router({
 
   // Transicion de estado del consultor (workflow-as-data). El transito
   // permitido lo define CONSULTANT_STATUS_TRANSITIONS en @nodus/rbac.
+  /**
+   * Clasificacion del consultor (TC3, RF-030): especialidad y nivel los fija
+   * Advisory, porque alimentan la guarda de elegibilidad de la bolsa.
+   */
+  classify: actionProcedure('consultant.classify')
+    .input(consultantClassifySchema)
+    .mutation(async ({ ctx, input }) => {
+      const consultant = await ctx.prisma.consultant.findFirst({
+        where: { userId: input.userId, tenantId: ctx.user.tenantId },
+      });
+      if (!consultant) throw new TRPCError({ code: 'NOT_FOUND' });
+
+      const updated = await ctx.prisma.consultant.update({
+        where: { id: consultant.id },
+        data: { specialtyCodes: input.specialtyCodes, levelCode: input.levelCode },
+      });
+
+      await appendAuditRow({
+        prisma: ctx.prisma,
+        tenantId: ctx.user.tenantId,
+        actorId: ctx.user.id,
+        action: 'CONSULTOR_CLASIFICADO',
+        entityType: 'Consultant',
+        entityId: consultant.id,
+        payload: {
+          de: { especialidades: consultant.specialtyCodes, nivel: consultant.levelCode },
+          a: { especialidades: input.specialtyCodes, nivel: input.levelCode },
+        },
+      });
+
+      return updated;
+    }),
+
   setStatus: actionProcedure('consultant.setStatus')
     .input(z.object({ userId: z.string().min(1), status: consultantStatusSchema }))
     .mutation(async ({ ctx, input }) => {

@@ -82,6 +82,14 @@ export const documentDownloadInputSchema = z.object({
 });
 export type DocumentDownloadInput = z.infer<typeof documentDownloadInputSchema>;
 
+/** Confirmar/verificar una version concreta contra el objeto real del bucket. */
+export const documentVersionRefSchema = z.object({
+  caseId: z.string().min(1),
+  documentId: z.string().min(1),
+  version: z.number().int().positive(),
+});
+export type DocumentVersionRef = z.infer<typeof documentVersionRefSchema>;
+
 /** Nivel del consultor (codigos LOV `nivel_consultor`). */
 export const consultantLevelSchema = z.enum(['junior', 'semi-senior', 'senior']);
 export type ConsultantLevel = z.infer<typeof consultantLevelSchema>;
@@ -97,6 +105,14 @@ export const consultantProfileSchema = z.object({
   availability: consultantAvailabilitySchema,
 });
 export type ConsultantProfileInput = z.infer<typeof consultantProfileSchema>;
+
+/** Clasificacion del consultor (TC3): la fija advisory, no el propio consultor. */
+export const consultantClassifySchema = z.object({
+  userId: z.string().min(1),
+  specialtyCodes: z.array(z.string().min(1)).max(20),
+  levelCode: consultantLevelSchema.nullable(),
+});
+export type ConsultantClassifyInput = z.infer<typeof consultantClassifySchema>;
 
 /** Codigos LOV `estado_consultor` (workflow-as-data del consultor). */
 export const consultantStatusSchema = z.enum([

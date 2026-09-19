@@ -31,6 +31,7 @@ export default function CaseDetailPage() {
   const docsQ = trpc.documents.list.useQuery({ caseId: id }, { enabled: !!caseQ.data && !caseQ.data.masked });
 
   const uploadDoc = trpc.documents.upload.useMutation();
+  const confirmDoc = trpc.documents.confirm.useMutation();
   const downloadDoc = trpc.documents.downloadUrl.useMutation({
     onError: (e) => setDocError(e.message),
   });
@@ -62,7 +63,11 @@ export default function CaseDetailPage() {
         body: file,
       });
       if (!put.ok) throw new Error('La subida al bucket falló (' + put.status + ')');
-      setDocOk(`Subido correctamente (v${res.version}).`);
+
+      // El servidor lee el archivo del repositorio y recalcula su sha256: hasta
+      // que no coincide con el declarado, la versión no cuenta ni se descarga.
+      await confirmDoc.mutateAsync({ caseId: id, documentId: res.documentId, version: res.version });
+      setDocOk(`Subido y verificado (v${res.version}).`);
       await Promise.all([
         utils.documents.list.invalidate({ caseId: id }),
         utils.cases.byId.invalidate({ id }),

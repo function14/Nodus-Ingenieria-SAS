@@ -374,6 +374,9 @@ model DocumentVersion {
   checksum     String
   uploadedById String
   uploadedAt   DateTime @default(now())
+  /// Sello de la confirmacion server-side: el objeto existe y su sha256 real
+  /// coincide con el declarado. Sin esto la version no se lista ni se descarga.
+  confirmedAt  DateTime?
 
   document   Document @relation(fields: [documentId], references: [id])
   uploadedBy User     @relation(fields: [uploadedById], references: [id])

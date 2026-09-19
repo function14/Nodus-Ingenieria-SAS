@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { notify } from '@nodus/notifications';
-import { eligibleForBolsa } from '@nodus/rbac';
+import { applyCaseMask, eligibleForBolsa } from '@nodus/rbac';
 import { actionProcedure, resourceProcedure, router } from '../trpc';
 
 export const postulationsRouter = router({
@@ -102,15 +102,24 @@ export const postulationsRouter = router({
           })()
         : cases;
 
-    return visible.map((c) => ({
-      id: c.id,
-      humanId: c.humanId,
-      company: c.company.name,
-      title: c.title,
-      area: c.areaCode,
-      complejidad: c.complexityLevel,
-      postulantes: c.postulations.length,
-      yaPostulado: c.postulations.some((p) => p.consultorId === ctx.user.id),
-    }));
+    // La bolsa muestra casos SIN asignar a consultores: es justo el supuesto que
+    // D9/RF-036 mandan enmascarar "hasta la asignacion". Se usa la MISMA regla
+    // que /casos y el detalle, para que las tres vistas no se contradigan.
+    // El area y la complejidad si se muestran: son lo que necesita para decidir
+    // si se postula, y no identifican al cliente.
+    return visible.map((c) => {
+      const view = applyCaseMask(ctx.user, c, { title: c.title, company: c.company.name });
+      return {
+        id: c.id,
+        humanId: c.humanId,
+        company: view.company,
+        title: view.title,
+        masked: view.masked,
+        area: c.areaCode,
+        complejidad: c.complexityLevel,
+        postulantes: c.postulations.length,
+        yaPostulado: c.postulations.some((p) => p.consultorId === ctx.user.id),
+      };
+    });
   }),
 });

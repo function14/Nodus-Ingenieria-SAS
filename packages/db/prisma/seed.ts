@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { createObjectStorage, storageConfigFromEnv } from '@nodus/storage';
 import bcrypt from 'bcryptjs';
 import { createHash } from 'node:crypto';
 import { computeRowHash } from '../src/audit';
@@ -567,65 +568,92 @@ await prisma.notification.deleteMany();
     where: { id: demoCaseId },
     include: { company: true },
   });
-  const demoDoc = await prisma.document.create({
-    data: {
-      tenantId: tenant.id,
-      caseId: demoCaseId,
-      stateCode: 'EN_EJECUCION',
-      kind: 'entregable',
-      title: 'Entregable Estudio de Mercado',
-      currentVersion: 2,
-    },
-  });
-  const v1key =
-    'empresa/' + demoCase.companyId + '/caso/' + demoCaseId + '/etapa/EN_EJECUCION/version/1/entregable-estudio-mercado.pdf';
-  const v2key =
-    'empresa/' + demoCase.companyId + '/caso/' + demoCaseId + '/etapa/EN_EJECUCION/version/2/entregable-estudio-mercado.pdf';
-  const demoChecksum = createHash('sha256').update('demo-entregable').digest('hex');
-  const demoVersions = [
-    { version: 1, objectKey: v1key, sizeBytes: 204_800 },
-    { version: 2, objectKey: v2key, sizeBytes: 245_760 },
-  ];
-  for (const dv of demoVersions) {
-    const row = await prisma.documentVersion.create({
-      data: {
-        documentId: demoDoc.id,
-        version: dv.version,
-        objectKey: dv.objectKey,
-        mime: 'application/pdf',
-        sizeBytes: dv.sizeBytes,
-        checksum: demoChecksum,
-        uploadedById: users['consultor'],
-      },
-    });
-    seq += 1;
-    const rec = {
-      seq,
-      action: 'DOCUMENTO_SUBIDO',
-      entityType: 'DocumentVersion',
-      entityId: row.id,
-      fromState: null as string | null,
-      toState: null as string | null,
-      payload: { kind: 'entregable', title: 'Entregable Estudio de Mercado', version: dv.version, sizeBytes: dv.sizeBytes } as unknown,
-    };
-    const rowHash = computeRowHash(prevHash, rec);
-    await prisma.auditLog.create({
+  // El repositorio documental vive en Cloudflare R2 (MinIO como sustituto
+  // local). Si no esta disponible se OMITE el entregable demo: nunca se crean
+  // filas de documento sin su archivo detras.
+  const storage = createObjectStorage(storageConfigFromEnv());
+  let storageOk = true;
+  try {
+    await storage.ensureBucket();
+  } catch {
+    storageOk = false;
+    console.warn(
+      'Seed: almacenamiento de objetos no disponible; se omite el entregable demo. ' +
+        'Para incluirlo: `docker compose up -d minio` en local, o configura R2_*.',
+    );
+  }
+
+  if (storageOk) {
+    const demoDoc = await prisma.document.create({
       data: {
         tenantId: tenant.id,
-        seq,
         caseId: demoCaseId,
-        actorId: users['consultor'],
-        action: rec.action,
-        entityType: rec.entityType,
-        entityId: rec.entityId,
-        fromState: rec.fromState,
-        toState: rec.toState,
-        payload: rec.payload as object,
-        prevHash,
-        rowHash,
+        stateCode: 'EN_EJECUCION',
+        kind: 'entregable',
+        title: 'Entregable Estudio de Mercado',
+        currentVersion: 2,
       },
     });
-    prevHash = rowHash;
+    const v1key =
+      'empresa/' + demoCase.companyId + '/caso/' + demoCaseId + '/etapa/EN_EJECUCION/version/1/entregable-estudio-mercado.pdf';
+    const v2key =
+      'empresa/' + demoCase.companyId + '/caso/' + demoCaseId + '/etapa/EN_EJECUCION/version/2/entregable-estudio-mercado.pdf';
+    // Contenido REAL de cada version: se sube al bucket y de ahi salen tamano y
+    // checksum. Antes se inventaban ambos y no se subia nada, asi que la demo
+    // mostraba un entregable cuyas dos versiones daban 404 al descargarlas.
+    const demoVersions = [
+      { version: 1, objectKey: v1key, body: Buffer.from('NODUS demo - Estudio de Mercado - v1') },
+      { version: 2, objectKey: v2key, body: Buffer.from('NODUS demo - Estudio de Mercado - v2 (revisada)') },
+    ].map((v) => ({
+      ...v,
+      sizeBytes: v.body.length,
+      checksum: createHash('sha256').update(v.body).digest('hex'),
+    }));
+    for (const dv of demoVersions) {
+      await storage.putObject(dv.objectKey, dv.body, 'text/plain');
+    }
+    for (const dv of demoVersions) {
+      const row = await prisma.documentVersion.create({
+        data: {
+          documentId: demoDoc.id,
+          version: dv.version,
+          objectKey: dv.objectKey,
+          mime: 'application/pdf',
+          sizeBytes: dv.sizeBytes,
+          checksum: dv.checksum,
+          uploadedById: users['consultor'],
+          confirmedAt: new Date(),
+        },
+      });
+      seq += 1;
+      const rec = {
+        seq,
+        action: 'DOCUMENTO_SUBIDO',
+        entityType: 'DocumentVersion',
+        entityId: row.id,
+        fromState: null as string | null,
+        toState: null as string | null,
+        payload: { kind: 'entregable', title: 'Entregable Estudio de Mercado', version: dv.version, sizeBytes: dv.sizeBytes } as unknown,
+      };
+      const rowHash = computeRowHash(prevHash, rec);
+      await prisma.auditLog.create({
+        data: {
+          tenantId: tenant.id,
+          seq,
+          caseId: demoCaseId,
+          actorId: users['consultor'],
+          action: rec.action,
+          entityType: rec.entityType,
+          entityId: rec.entityId,
+          fromState: rec.fromState,
+          toState: rec.toState,
+          payload: rec.payload as object,
+          prevHash,
+          rowHash,
+        },
+      });
+      prevHash = rowHash;
+    }
   }
 
   // Notificaciones de distinto alcance, para que el scoping por rol sea visible:
