@@ -45,10 +45,17 @@ export function objectKeyFor(params: {
   companyId: string;
   caseId: string;
   stateCode: string;
+  /**
+   * Discrimina entre documentos del MISMO caso y etapa. Sin el, dos documentos
+   * distintos con igual nombre de archivo y numero de version producen la
+   * misma clave: en el mejor caso choca contra el indice unico, y sin el se
+   * pisarian el fichero en silencio.
+   */
+  documentId: string;
   version: number;
   filename: string;
 }): string {
-  const { companyId, caseId, stateCode, version, filename } = params;
+  const { companyId, caseId, stateCode, documentId, version, filename } = params;
   return [
     'empresa',
     slug(companyId),
@@ -56,6 +63,8 @@ export function objectKeyFor(params: {
     slug(caseId),
     'etapa',
     slug(stateCode),
+    'doc',
+    slug(documentId),
     'version',
     String(version),
     sanitizeFilename(filename),

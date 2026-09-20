@@ -2,22 +2,44 @@ import { describe, it, expect } from 'vitest';
 import { objectKeyFor, storageConfigFromEnv } from './index';
 
 describe('objectKeyFor - ruta logica RT-023 (etapa y version)', () => {
-  it('construye empresa/{emp}/caso/{caso}/etapa/{estado}/version/{v}/{nombre}', () => {
+  it('construye empresa/{emp}/caso/{caso}/etapa/{estado}/doc/{id}/version/{v}/{nombre}', () => {
     const key = objectKeyFor({
       companyId: 'comp-123',
       caseId: 'caso-abc',
       stateCode: 'EN_EJECUCION',
+      documentId: 'doc-9',
       version: 2,
       filename: 'entregable-final.pdf',
     });
     expect(key).toBe(
-      'empresa/comp-123/caso/caso-abc/etapa/EN_EJECUCION/version/2/entregable-final.pdf',
+      'empresa/comp-123/caso/caso-abc/etapa/EN_EJECUCION/doc/doc-9/version/2/entregable-final.pdf',
     );
   });
 
   it('distintas versiones generan rutas distintas (RF-042, no sobrescribe)', () => {
-    const base = { companyId: 'c', caseId: 'k', stateCode: 'EN_EJECUCION', filename: 'doc.pdf' };
+    const base = {
+      companyId: 'c',
+      caseId: 'k',
+      stateCode: 'EN_EJECUCION',
+      documentId: 'd',
+      filename: 'doc.pdf',
+    };
     expect(objectKeyFor({ ...base, version: 1 })).not.toBe(objectKeyFor({ ...base, version: 2 }));
+  });
+
+  it('dos documentos del mismo caso y etapa con igual nombre NO colisionan', () => {
+    // Sin el documentId en la ruta, estos dos producian la misma clave: chocaba
+    // contra el indice unico, y sin el se habrian pisado el fichero.
+    const base = {
+      companyId: 'c',
+      caseId: 'k',
+      stateCode: 'EN_EJECUCION',
+      version: 1,
+      filename: 'informe.pdf',
+    };
+    expect(objectKeyFor({ ...base, documentId: 'doc-a' })).not.toBe(
+      objectKeyFor({ ...base, documentId: 'doc-b' }),
+    );
   });
 
   it('sanea nombres con rutas/separadores y caracteres raros', () => {
@@ -25,6 +47,7 @@ describe('objectKeyFor - ruta logica RT-023 (etapa y version)', () => {
       companyId: 'empresa 1/..',
       caseId: 'k',
       stateCode: 'EN_EJECUCION',
+      documentId: 'd',
       version: 1,
       filename: '../..\\mal:nombre?.pdf',
     });

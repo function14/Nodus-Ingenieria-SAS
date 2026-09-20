@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { createObjectStorage, storageConfigFromEnv } from '@nodus/storage';
+import { createObjectStorage, objectKeyFor, storageConfigFromEnv } from '@nodus/storage';
 import bcrypt from 'bcryptjs';
 import { createHash } from 'node:crypto';
 import { computeRowHash } from '../src/audit';
@@ -597,10 +597,19 @@ await prisma.notification.deleteMany();
         currentVersion: 2,
       },
     });
-    const v1key =
-      'empresa/' + demoCase.companyId + '/caso/' + demoCaseId + '/etapa/EN_EJECUCION/version/1/entregable-estudio-mercado.pdf';
-    const v2key =
-      'empresa/' + demoCase.companyId + '/caso/' + demoCaseId + '/etapa/EN_EJECUCION/version/2/entregable-estudio-mercado.pdf';
+    // La ruta la construye objectKeyFor, no el seed: duplicar el esquema aqui
+    // fue lo que dejo claves distintas a las que genera la aplicacion.
+    const keyFor = (version: number) =>
+      objectKeyFor({
+        companyId: demoCase.companyId,
+        caseId: demoCaseId,
+        stateCode: 'EN_EJECUCION',
+        documentId: demoDoc.id,
+        version,
+        filename: 'entregable-estudio-mercado.pdf',
+      });
+    const v1key = keyFor(1);
+    const v2key = keyFor(2);
     // Contenido REAL de cada version: se sube al bucket y de ahi salen tamano y
     // checksum. Antes se inventaban ambos y no se subia nada, asi que la demo
     // mostraba un entregable cuyas dos versiones daban 404 al descargarlas.

@@ -163,6 +163,7 @@ export const documentsRouter = router({
           companyId: kase.companyId,
           caseId: input.caseId,
           stateCode: kase.currentState.code,
+          documentId: doc.id,
           version,
           filename: input.filename,
         });
