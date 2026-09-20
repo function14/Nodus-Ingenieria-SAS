@@ -1,9 +1,12 @@
+import { randomBytes } from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { prisma, appendAuditRow } from '@nodus/db';
 import { canSelfDeclareClassification, canSetConsultantStatus } from '@nodus/rbac';
 import {
   consultantClassifySchema,
+  consultantInviteSchema,
   consultantProfileSchema,
   consultantStatusSchema,
 } from '@nodus/schemas';
@@ -121,6 +124,86 @@ export const consultantsRouter = router({
    * Clasificacion del consultor (TC3, RF-030): especialidad y nivel los fija
    * Advisory, porque alimentan la guarda de elegibilidad de la bolsa.
    */
+  /**
+   * Alta de un consultor (TC1). La ejecuta Advisory porque el ecosistema es
+   * cerrado: no hay auto-registro publico, la entrada al marketplace la
+   * controla 911MiPyme.
+   *
+   * Crea el usuario y su ficha en estado `registrado`, que es donde empieza el
+   * ciclo. NO lo clasifica ni lo habilita: eso son pasos posteriores y
+   * deliberadamente separados, porque especialidad y nivel alimentan la guarda
+   * de elegibilidad de la bolsa.
+   *
+   * La contrasena temporal se genera aqui y se devuelve UNA vez. Con un
+   * proveedor de correo configurado, esto seria un enlace de activacion en vez
+   * de una contrasena que alguien tiene que transmitir a mano.
+   */
+  invite: actionProcedure('consultant.invite')
+    .input(consultantInviteSchema)
+    .mutation(async ({ ctx, input }) => {
+      const email = input.email.trim().toLowerCase();
+
+      const existente = await ctx.prisma.user.findFirst({
+        where: { tenantId: ctx.user.tenantId, email },
+        select: { id: true },
+      });
+      if (existente) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'Ya existe un usuario con ese correo en la plataforma',
+        });
+      }
+
+      const rol = await ctx.prisma.role.findUnique({ where: { code: 'consultor' } });
+      if (!rol) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Falta el rol consultor' });
+
+      // Legible al dictarla, sin caracteres que se confundan al transcribir.
+      const alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      const bytes = randomBytes(12);
+      const passwordTemporal = Array.from(bytes, (b) => alfabeto[b % alfabeto.length]).join('');
+
+      const creado = await ctx.prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            tenantId: ctx.user.tenantId,
+            email,
+            name: input.name.trim(),
+            passwordHash: bcrypt.hashSync(passwordTemporal, 10),
+            roleId: rol.id,
+          },
+        });
+        const consultant = await tx.consultant.create({
+          data: {
+            tenantId: ctx.user.tenantId,
+            userId: user.id,
+            humanId: await nextHumanId(ctx.user.tenantId),
+            specialtyCodes: [],
+            status: 'registrado',
+          },
+        });
+        return { user, consultant };
+      });
+
+      await appendAuditRow({
+        prisma: ctx.prisma,
+        tenantId: ctx.user.tenantId,
+        actorId: ctx.user.id,
+        action: 'CONSULTOR_REGISTRADO',
+        entityType: 'Consultant',
+        entityId: creado.consultant.id,
+        // Nunca la contrasena: la bitacora es consultable.
+        payload: { humanId: creado.consultant.humanId, email, estado: 'registrado' },
+      });
+
+      return {
+        userId: creado.user.id,
+        humanId: creado.consultant.humanId,
+        email,
+        name: creado.user.name,
+        passwordTemporal,
+      };
+    }),
+
   classify: actionProcedure('consultant.classify')
     .input(consultantClassifySchema)
     .mutation(async ({ ctx, input }) => {

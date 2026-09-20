@@ -114,6 +114,17 @@ export const consultantClassifySchema = z.object({
 });
 export type ConsultantClassifyInput = z.infer<typeof consultantClassifySchema>;
 
+/**
+ * Alta de un consultor (TC1). La crea Advisory: el ecosistema es cerrado, no
+ * hay auto-registro publico. Solo identidad; la clasificacion es un paso
+ * aparte porque la decide Advisory tras la debida diligencia.
+ */
+export const consultantInviteSchema = z.object({
+  email: z.string().email().max(160),
+  name: z.string().min(3).max(120),
+});
+export type ConsultantInviteInput = z.infer<typeof consultantInviteSchema>;
+
 /** Codigos LOV `estado_consultor` (workflow-as-data del consultor). */
 export const consultantStatusSchema = z.enum([
   'registrado',

@@ -44,6 +44,7 @@ export const ACTION_ACCESS = {
   'postulation.create': ['consultor'],
   'consultant.setStatus': ['advisory', 'admin'],
   'consultant.classify': ['advisory', 'admin'],
+  'consultant.invite': ['advisory', 'admin'],
   'consultant.profile': ['consultor'],
   'sla.sweep': ['advisory', 'admin'],
   'document.upload': ['advisory', 'admin', 'consultor', 'mipyme'],

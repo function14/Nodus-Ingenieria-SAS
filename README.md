@@ -90,7 +90,10 @@ El botón **"Ver como"** del encabezado cambia de rol re-autenticando como ese u
    En **Bolsa interna** puedes postularte a un caso clasificado.
 5. Vuelve a **advisory** → en **Bolsa interna** asigna a ese consultor → el caso avanza y el consultor
    ya ve los datos reales del cliente.
-6. **“Revisar SLA”** en el dashboard → aparecen alertas en **Alertas**; en **Workflow** ves la máquina
+6. **Consultores → “Registrar un consultor”** → nace en `registrado` y **no ve casos**.
+   Clasifícalo (especialidad y nivel) y pásalo a `habilitado`: recién entonces aparecen en
+   su bolsa los casos que encajan con su perfil, y aún con la empresa enmascarada.
+7. **“Revisar SLA”** en el dashboard → aparecen alertas en **Alertas**; en **Workflow** ves la máquina
    de estados tal como está configurada en la base de datos.
 
 ### Comprobar el canal de correo

@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { createHash } from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { prisma } from '@nodus/db';
 import { MASKED_COMPANY, MASKED_TITLE } from '@nodus/rbac';
 import { createObjectStorage, storageConfigFromEnv } from '@nodus/storage';
@@ -407,5 +408,77 @@ describe('R5 - la vista previa del correo respeta el mismo alcance', () => {
     await expect(
       callerFor(advisory).notifications.emailDetail({ id: inApp.id }),
     ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+  });
+});
+
+/* ------------------------------------------------------------------ */
+describe('R6 - alta de consultor y su ciclo hasta ver casos', () => {
+  const correo = `alta-${Date.now()}@consultora.test`;
+  let nuevoUserId = '';
+
+  it('advisory da de alta un consultor y nace en registrado', async () => {
+    const r = await callerFor(advisory).consultants.invite({
+      name: 'Laura Restrepo',
+      email: correo,
+    });
+    nuevoUserId = r.userId;
+    expect(r.humanId).toMatch(/^CON-\d{6}$/);
+    expect(r.passwordTemporal).toHaveLength(12);
+
+    const c = await prisma.consultant.findFirstOrThrow({ where: { userId: r.userId } });
+    expect(c.status).toBe('registrado');
+    expect(c.specialtyCodes).toEqual([]);
+  });
+
+  it('la contrasena temporal sirve para entrar, y no queda en la bitacora', async () => {
+    const r = await callerFor(advisory).consultants.invite({
+      name: 'Pedro Gomez',
+      email: `alta2-${Date.now()}@consultora.test`,
+    });
+    const u = await prisma.user.findUniqueOrThrow({ where: { id: r.userId } });
+    expect(bcrypt.compareSync(r.passwordTemporal, u.passwordHash)).toBe(true);
+
+    const log = await prisma.auditLog.findFirstOrThrow({
+      where: { action: 'CONSULTOR_REGISTRADO', tenantId },
+      orderBy: { seq: 'desc' },
+    });
+    expect(JSON.stringify(log.payload)).not.toContain(r.passwordTemporal);
+  });
+
+  it('no se puede repetir el correo', async () => {
+    await expect(
+      callerFor(advisory).consultants.invite({ name: 'Otra Persona', email: correo }),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+  });
+
+  it('un consultor no puede dar de alta a otro', async () => {
+    await expect(
+      callerFor(consultor).consultants.invite({ name: 'X Y', email: `x-${Date.now()}@z.test` }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
+  it('recien registrado no ve la bolsa; al clasificarlo y habilitarlo, si', async () => {
+    const u = await prisma.user.findUniqueOrThrow({ where: { id: nuevoUserId } });
+    const comoNuevo = {
+      id: u.id, role: 'consultor', tenantId: u.tenantId,
+      companyId: u.companyId, name: u.name, email: u.email,
+    };
+
+    // En `registrado` la guarda de elegibilidad lo deja fuera por completo.
+    expect(await callerFor(comoNuevo).postulations.bolsa()).toHaveLength(0);
+
+    await callerFor(advisory).consultants.classify({
+      userId: nuevoUserId, specialtyCodes: ['finanzas'], levelCode: 'senior',
+    });
+    // Sigue sin ver nada: clasificar no habilita.
+    expect(await callerFor(comoNuevo).postulations.bolsa()).toHaveLength(0);
+
+    await callerFor(advisory).consultants.setStatus({ userId: nuevoUserId, status: 'en_validacion' });
+    await callerFor(advisory).consultants.setStatus({ userId: nuevoUserId, status: 'habilitado' });
+
+    const bolsa = await callerFor(comoNuevo).postulations.bolsa();
+    expect(bolsa.length).toBeGreaterThan(0);
+    // Y lo que ve sigue enmascarado: aun no tiene ningun caso asignado.
+    for (const b of bolsa) expect(b.masked).toBe(true);
   });
 });
