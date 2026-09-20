@@ -47,7 +47,7 @@ docker-compose.yml    Postgres, Redis y MinIO para desarrollo
 **Requisitos:** Docker, Node 20+ y pnpm.
 
 ```bash
-git clone git@github.com:function14/Nodus-Ingenieria-SAS.git
+git clone https://github.com/function14/Nodus-Ingenieria-SAS.git
 cd Nodus-Ingenieria-SAS
 
 # 1. Variables de entorno (los valores por defecto sirven para local)
@@ -55,8 +55,9 @@ cp packages/db/.env.example packages/db/.env
 cp apps/web/.env.example    apps/web/.env.local
 #    en apps/web/.env.local pon un AUTH_SECRET real:  openssl rand -base64 32
 
-# 2. Postgres local (puerto 5442, no choca con otros Postgres)
-docker compose up -d db
+# 2. Postgres y almacenamiento de objetos locales
+#    (puertos 5442 y 9002: no chocan con otros Postgres ni MinIO)
+docker compose up -d db minio
 
 # 3. Dependencias y cliente de Prisma
 pnpm install
