@@ -61,3 +61,42 @@ resource "vercel_project_environment_variable" "auth_trust_host" {
   target     = ["production", "preview"]
   sensitive  = false
 }
+
+# Repositorio documental en Cloudflare R2. Si no se pasan credenciales el
+# entorno queda sin documentos y la aplicacion lo dice con un error claro, en
+# vez de intentar hablar con el MinIO de desarrollo.
+resource "vercel_project_environment_variable" "r2_account_id" {
+  count      = var.r2 == null ? 0 : 1
+  project_id = vercel_project.web.id
+  key        = "R2_ACCOUNT_ID"
+  value      = var.r2.account_id
+  target     = ["production", "preview"]
+  sensitive  = true
+}
+
+resource "vercel_project_environment_variable" "r2_access_key_id" {
+  count      = var.r2 == null ? 0 : 1
+  project_id = vercel_project.web.id
+  key        = "R2_ACCESS_KEY_ID"
+  value      = var.r2.access_key_id
+  target     = ["production", "preview"]
+  sensitive  = true
+}
+
+resource "vercel_project_environment_variable" "r2_secret_access_key" {
+  count      = var.r2 == null ? 0 : 1
+  project_id = vercel_project.web.id
+  key        = "R2_SECRET_ACCESS_KEY"
+  value      = var.r2.secret_access_key
+  target     = ["production", "preview"]
+  sensitive  = true
+}
+
+resource "vercel_project_environment_variable" "r2_bucket" {
+  count      = var.r2 == null ? 0 : 1
+  project_id = vercel_project.web.id
+  key        = "R2_BUCKET"
+  value      = var.r2.bucket
+  target     = ["production", "preview"]
+  sensitive  = true
+}

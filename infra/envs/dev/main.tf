@@ -35,4 +35,5 @@ module "vercel" {
   database_url = local.app_database_url
   auth_secret  = var.auth_secret
   cron_secret  = random_password.cron_secret.result
+  r2           = var.r2
 }

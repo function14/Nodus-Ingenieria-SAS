@@ -38,6 +38,14 @@ export interface StorageConfig {
   secretKey: string;
   bucket: string;
   region?: string;
+  /**
+   * Crear el bucket si no existe. Solo tiene sentido en desarrollo: en
+   * produccion el bucket es infraestructura, se crea una vez, y el token de la
+   * aplicacion debe ser de minimo privilegio (objetos, no administracion).
+   * Dejarlo activo obliga a dar permisos de CreateBucket/HeadBucket y hace
+   * fallar TODO el modulo documental si el token no los tiene.
+   */
+  autoCreateBucket?: boolean;
 }
 
 /** Ruta logica del modelo de negocio: etapa y version SIEMPRE presentes. */
@@ -97,6 +105,7 @@ export function storageConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Stor
       secretKey: env.R2_SECRET_ACCESS_KEY ?? '',
       bucket: env.R2_BUCKET ?? 'nodus-docs',
       region: env.R2_REGION ?? 'auto',
+      autoCreateBucket: false,
     };
   }
   // Desarrollo local: MinIO (docker compose de nodus, puerto 9002).
@@ -108,6 +117,7 @@ export function storageConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Stor
     secretKey: env.MINIO_SECRET_KEY ?? 'nodus-local-secret',
     bucket: env.MINIO_BUCKET ?? 'nodus-docs',
     region: env.MINIO_REGION,
+    autoCreateBucket: true,
   };
 }
 
@@ -129,6 +139,7 @@ export function createObjectStorage(config: StorageConfig): StorageBackend {
   let bucketReady: Promise<void> | null = null;
   function ensureBucketOnce(): Promise<void> {
     bucketReady ??= (async () => {
+      if (!config.autoCreateBucket) return; // el bucket es infraestructura
       const exists = await client.bucketExists(config.bucket);
       if (!exists) await client.makeBucket(config.bucket);
     })();

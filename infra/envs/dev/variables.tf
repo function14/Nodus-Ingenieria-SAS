@@ -33,3 +33,15 @@ variable "neon_org_id" {
   description = "Organizacion de Neon (org-xxxx). Requerido por la API al crear el proyecto."
   default     = null
 }
+
+variable "r2" {
+  type = object({
+    account_id        = string
+    access_key_id     = string
+    secret_access_key = string
+    bucket            = string
+  })
+  description = "Cloudflare R2 (repositorio documental). Dejar null hasta tener el bucket."
+  sensitive   = true
+  default     = null
+}

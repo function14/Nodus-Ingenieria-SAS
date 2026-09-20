@@ -30,3 +30,15 @@ variable "cron_secret" {
   description = "Secreto que protege /api/cron/sla frente a disparos externos."
   sensitive   = true
 }
+
+variable "r2" {
+  type = object({
+    account_id        = string
+    access_key_id     = string
+    secret_access_key = string
+    bucket            = string
+  })
+  description = "Cloudflare R2 para el repositorio documental. null = sin documentos en el entorno."
+  sensitive   = true
+  default     = null
+}

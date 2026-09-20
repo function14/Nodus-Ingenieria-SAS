@@ -4,3 +4,12 @@ vercel_api_token = "vercel_token_xxx"
 vercel_team      = null
 auth_secret      = "genera-uno: openssl rand -base64 32"
 git_repo         = "tu-org/nodus"
+
+# Repositorio documental (Cloudflare R2). Dejar comentado hasta tener el bucket:
+# sin esto la aplicacion funciona igual, solo sin documentos.
+# r2 = {
+#   account_id        = "<account-id de Cloudflare>"
+#   access_key_id     = "<access key del token R2>"
+#   secret_access_key = "<secret del token R2>"
+#   bucket            = "nodus-docs"
+# }
