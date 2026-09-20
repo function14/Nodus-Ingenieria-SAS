@@ -104,10 +104,15 @@ dispara el propio recorrido de arriba:
 | **“Revisar SLA”** (paso 6) | `sla_breached` → **TCOM9** | `advisory@demo.nodus` |
 | Creas un caso de *RetailModa* (paso 2) | `caso_creado` → **TCOM1** | `mipyme@demo.nodus` |
 
-En **Alertas** verás el registro de envío: destinatario, asunto renderizado y estado de
-entrega. Sin proveedor configurado el estado es **“sin proveedor configurado”** — el sistema
-**no finge** que envió. Cada envío queda además encadenado en la bitácora con su
-destinatario, que es lo que exige RT-013.
+En **Alertas**, esas comunicaciones traen un botón **“Ver correo”** que muestra exactamente
+lo que recibiría el destinatario: remitente, destinatario, asunto y cuerpo renderizados desde
+la plantilla, la versión de plantilla usada y **el eslabón de la bitácora** donde quedó
+encadenado el envío.
+
+Así el canal se puede comprobar de punta a punta sin acceder a un buzón: que la plantilla vive
+como dato, que las variables se sustituyen, que el destinatario se resolvió desde los datos
+correctos y que todo quedó auditado. Sin proveedor configurado el estado dice **“no enviado —
+sin proveedor”**: el sistema registra y audita, pero **no finge** haber entregado.
 
 Para que salgan correos de verdad basta con añadir `RESEND_API_KEY` (y `EMAIL_FROM` con un
 dominio verificado): esos mismos registros pasan a **“entregado”**, sin tocar una línea de

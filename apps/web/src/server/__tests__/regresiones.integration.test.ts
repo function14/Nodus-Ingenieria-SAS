@@ -360,3 +360,52 @@ describe('R4 - el canal email deja registro comprobable (RT-013)', () => {
     expect(payload.recipientEmail).toBe(email.recipientEmail);
   });
 });
+
+/* ------------------------------------------------------------------ */
+describe('R5 - la vista previa del correo respeta el mismo alcance', () => {
+  it('advisory ve el correo completo y su eslabon de bitacora', async () => {
+    // El test crea su propio dato: no depende de que otro haya corrido antes.
+    const mip = await prisma.user.findFirstOrThrow({ where: { role: { code: 'mipyme' } } });
+    const kase = await prisma.case.findFirstOrThrow({ where: { companyId: mip.companyId! } });
+    await notify({ prisma, tenantId, eventType: 'caso_creado', caseId: kase.id, actorId: null });
+
+    const email = await prisma.notification.findFirstOrThrow({
+      where: { channel: 'email', templateCode: 'TCOM1', caseId: kase.id },
+      orderBy: { createdAt: 'desc' },
+    });
+    const d = await callerFor(advisory).notifications.emailDetail({ id: email.id });
+    expect(d.to).toBe(email.recipientEmail);
+    expect(d.subject).toContain('Confirmación');
+    expect(d.body.length).toBeGreaterThan(10);
+    expect(d.templateCode).toBe('TCOM1');
+    expect(d.from).toBeTruthy();
+    expect(d.auditHash).toBeTruthy(); // quedo encadenada
+  });
+
+  it('no se puede abrir el correo de una comunicacion fuera de alcance', async () => {
+    const mip = await prisma.user.findFirstOrThrow({ where: { role: { code: 'mipyme' } } });
+    const mipUser = {
+      id: mip.id,
+      role: 'mipyme',
+      tenantId: mip.tenantId,
+      companyId: mip.companyId,
+      name: mip.name,
+      email: mip.email,
+    };
+    // TCOM9 va dirigida a advisory sobre un caso que no es de su empresa.
+    const ajena = await prisma.notification.findFirst({
+      where: { channel: 'email', case: { companyId: { not: mip.companyId! } } },
+    });
+    if (!ajena) return; // el seed no siempre deja una asi
+    await expect(
+      callerFor(mipUser).notifications.emailDetail({ id: ajena.id }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('una notificacion in-app no se abre como correo', async () => {
+    const inApp = await prisma.notification.findFirstOrThrow({ where: { channel: 'in_app' } });
+    await expect(
+      callerFor(advisory).notifications.emailDetail({ id: inApp.id }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+  });
+});

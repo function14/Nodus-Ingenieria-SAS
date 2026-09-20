@@ -48,6 +48,7 @@ export default function AlertasPage() {
                       </p>
                     )}
                     <DeliveryBadge
+                      id={n.id}
                       channel={n.channel}
                       deliveryStatus={n.deliveryStatus}
                       recipientEmail={n.recipientEmail}

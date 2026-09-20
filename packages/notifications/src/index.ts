@@ -18,11 +18,11 @@
 import { computeRowHash } from '@nodus/db';
 import type { Prisma, PrismaClient } from '@nodus/db';
 import { renderTemplate, renderSubject } from './render';
-import { emailConfigured, sendEmail } from './email';
+import { emailConfigured, emailFrom, sendEmail } from './email';
 import { resolveEmailRecipients } from './recipients';
 import type { TxOrClient } from './types';
 
-export { renderTemplate, renderSubject, emailConfigured, sendEmail, resolveEmailRecipients };
+export { renderTemplate, renderSubject, emailConfigured, emailFrom, sendEmail, resolveEmailRecipients };
 export type { EmailResult, EmailRecipient } from './email';
 export type { ResolveEmailRecipientsParams } from './recipients';
 export type { TxOrClient };
