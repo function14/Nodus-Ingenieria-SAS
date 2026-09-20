@@ -64,6 +64,27 @@ async function gateDocumentCase(
  *   - Toda subida y toda descarga quedan en la bitacora encadenada.
  *   - El acceso deriva de @nodus/rbac.canAccessCaseDocuments (nada ad-hoc).
  */
+/**
+ * El repositorio de objetos es una dependencia externa (Cloudflare R2; MinIO
+ * en local) y puede no estar configurada. Cuando no lo esta, el fallo se
+ * traduce a un error claro en vez de escupir el `ECONNREFUSED` con host y
+ * puerto internos: el resto del caso sigue funcionando, y quien lo lee sabe
+ * que falta configurar, no que la aplicacion este rota.
+ */
+async function conRepositorio<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    throw new TRPCError({
+      code: 'PRECONDITION_FAILED',
+      message:
+        'El repositorio documental no esta disponible. Configura Cloudflare R2 (R2_*) ' +
+        'o levanta MinIO en local; el resto del caso no se ve afectado.',
+      cause: e,
+    });
+  }
+}
+
 export const documentsRouter = router({
   list: resourceProcedure('cases')
     .input(z.object({ caseId: z.string().min(1) }))
@@ -176,7 +197,7 @@ export const documentsRouter = router({
         return { doc, dv };
       });
 
-      const putUrl = await storage.putObjectUrl(created.dv.objectKey);
+      const putUrl = await conRepositorio(() => storage.putObjectUrl(created.dv.objectKey));
 
       return {
         documentId: created.doc.id,
@@ -209,7 +230,7 @@ export const documentsRouter = router({
       if (!dv) throw new TRPCError({ code: 'NOT_FOUND' });
       if (dv.confirmedAt) return { confirmed: true, version: dv.version, alreadyConfirmed: true };
 
-      const object = await storage.getObject(dv.objectKey);
+      const object = await conRepositorio(() => storage.getObject(dv.objectKey));
       if (!object) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -274,7 +295,7 @@ export const documentsRouter = router({
       });
       if (!dv) throw new TRPCError({ code: 'NOT_FOUND' });
 
-      const object = await storage.getObject(dv.objectKey);
+      const object = await conRepositorio(() => storage.getObject(dv.objectKey));
       if (!object) return { ok: false, reason: 'ausente' as const, version: dv.version };
       const actual = createHash('sha256').update(object).digest('hex');
       const ok = actual === dv.checksum.toLowerCase() && object.length === dv.sizeBytes;
@@ -312,7 +333,7 @@ export const documentsRouter = router({
         payload: { documentId: input.documentId, version: dv.version },
       });
 
-      const getUrl = await storage.getObjectUrl(dv.objectKey);
+      const getUrl = await conRepositorio(() => storage.getObjectUrl(dv.objectKey));
       return { url: getUrl, version: dv.version };
     }),
 });

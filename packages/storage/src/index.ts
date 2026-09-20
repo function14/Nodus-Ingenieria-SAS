@@ -145,8 +145,14 @@ export function createObjectStorage(config: StorageConfig): StorageBackend {
         const chunks: Buffer[] = [];
         for await (const chunk of stream) chunks.push(chunk as Buffer);
         return Buffer.concat(chunks);
-      } catch {
-        return null; // NoSuchKey u objeto inaccesible
+      } catch (e) {
+        // null significa "el objeto no esta", no "no hay repositorio". Si el
+        // almacenamiento es inalcanzable hay que propagarlo: confundir ambos
+        // haria que un fallo de configuracion se leyera como un archivo
+        // perdido, y se reportaria el problema equivocado.
+        const code = (e as { code?: string })?.code ?? '';
+        if (code === 'NoSuchKey' || code === 'NotFound' || code === 'NoSuchBucket') return null;
+        throw e;
       }
     },
     async putObject(objectKey, body, mime) {
