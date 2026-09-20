@@ -2,6 +2,7 @@
 
 import { Bell } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
+import { DeliveryBadge } from './_delivery-badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 export default function AlertasPage() {
@@ -44,11 +45,15 @@ export default function AlertasPage() {
                         <span className="mx-1">·</span>
                         <span>{n.channel === 'email' ? 'Email' : 'In-app'}</span>
                         {n.recipientRole && <span> · {n.recipientRole}</span>}
-                        {n.deliveryStatus === 'failed' && (
-                          <span className="text-danger"> · fallo</span>
-                        )}
                       </p>
                     )}
+                    <DeliveryBadge
+                      channel={n.channel}
+                      deliveryStatus={n.deliveryStatus}
+                      recipientEmail={n.recipientEmail}
+                      subject={n.subject}
+                      sentAt={n.sentAt}
+                    />
                   </div>
                 </li>
               ))}

@@ -387,7 +387,10 @@ await prisma.notification.deleteMany();
   // Quien ve que lo decide RBAC; aqui SOLO se declara la gobernanza por dato.
   // [eventType, templateCode, recipientRole, channel]
   const commRules: Array<[string, string, string | null, string]> = [
-    ['caso_creado', 'TCOM1', 'mipyme', 'in_app'],
+    // Estos dos van por EMAIL a proposito: son los que dispara el recorrido
+    // guiado del README (crear un caso y 'Revisar SLA'), de modo que el canal
+    // se puede comprobar sin conocer el sistema por dentro.
+    ['caso_creado', 'TCOM1', 'mipyme', 'email'],
     ['caso_en_revision', 'TCOM13', 'advisory', 'in_app'],
     ['solicitud_aclaracion', 'TCOM2', 'mipyme', 'in_app'],
     ['caso_habilitado_postulacion', 'TCOM3', 'advisory', 'in_app'],
@@ -418,7 +421,7 @@ await prisma.notification.deleteMany();
     ['cierre_sin_contratacion', 'TCOM13', 'advisory', 'in_app'],
     ['cierre_sin_contratacion', 'TCOM6', 'mipyme', 'in_app'],
     ['sla_warn', 'TCOM8', 'consultor', 'in_app'],
-    ['sla_breached', 'TCOM9', 'advisory', 'in_app'],
+    ['sla_breached', 'TCOM9', 'advisory', 'email'],
     ['sla_escalado', 'TCOM9', 'advisory', 'in_app'],
   ];
   for (const [eventType, templateCode, recipientRole, channel] of commRules) {

@@ -55,6 +55,7 @@ export const notificationsRouter = router({
       Boolean(n.case && n.templateCode && n.vars && isCaseMaskedFor(ctx.user, n.case));
 
     const bodies = new Map<string, string>();
+    const subjects = new Map<string, string>();
     const codes = [...new Set(rows.filter(needsMask).map((n) => n.templateCode!))];
     if (codes.length > 0) {
       const versions = await ctx.prisma.templateVersion.findMany({
@@ -64,11 +65,13 @@ export const notificationsRouter = router({
       });
       for (const v of versions) {
         if (v.body && !bodies.has(v.template.code)) bodies.set(v.template.code, v.body);
+        if (v.subject && !subjects.has(v.template.code)) subjects.set(v.template.code, v.subject);
       }
     }
 
     return rows.map((n) => {
       let message = n.message;
+      let subject = n.subject;
       if (needsMask(n)) {
         const body = bodies.get(n.templateCode!);
         if (body) {
@@ -76,10 +79,13 @@ export const notificationsRouter = router({
           delete vars.__to; // destinatario interno del canal email
           const safe = maskCommunicationVars(ctx.user, n.case!, vars) as RenderVars;
           message = renderTemplate(body, safe);
+          const subjTpl = subjects.get(n.templateCode!);
+          if (subjTpl) subject = renderTemplate(subjTpl, safe);
         } else {
           // Sin cuerpo de plantilla no se puede re-renderizar; no se arriesga
           // a devolver el texto guardado, que lleva la empresa real.
           message = 'Aviso sobre un caso de la bolsa interna.';
+          subject = null;
         }
       }
       return {
@@ -92,6 +98,11 @@ export const notificationsRouter = router({
         recipientRole: n.recipientRole,
         channel: n.channel,
         deliveryStatus: n.deliveryStatus,
+        // Registro de envio (RT-013): permite comprobar el canal email desde
+        // la propia aplicacion, sin depender de acceder a un buzon.
+        recipientEmail: n.recipientEmail,
+        subject,
+        sentAt: n.sentAt,
       };
     });
   }),

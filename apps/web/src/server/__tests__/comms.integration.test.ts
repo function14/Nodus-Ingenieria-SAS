@@ -105,15 +105,30 @@ describe('F1 - comunicaciones gobernadas', () => {
   });
 
   it('la bitacora registra COMUNICACION_ENVIADA en la misma transaccion', async () => {
-    const entry = await prisma.auditLog.findFirst({
+    const entries = await prisma.auditLog.findMany({
       where: { tenantId, entityType: 'Notification', action: 'COMUNICACION_ENVIADA' },
+      orderBy: { seq: 'asc' },
     });
-    expect(entry).toBeTruthy();
-    const payload = entry!.payload as { eventType?: string; templateCode?: string; channel?: string; deliveryStatus?: string };
-    expect(payload.eventType).toBe('caso_creado');
-    expect(payload.templateCode).toBe('TCOM1');
-    expect(payload.channel).toBe('in_app');
-    expect(payload.deliveryStatus).toBe('sent');
+    type P = {
+      eventType?: string;
+      templateCode?: string;
+      channel?: string;
+      deliveryStatus?: string;
+      recipientEmail?: string;
+    };
+    const payloads = entries.map((e) => e.payload as P);
+
+    const inApp = payloads.find(
+      (p) => p.eventType === 'caso_creado' && p.templateCode === 'TCOM1' && p.channel === 'in_app',
+    );
+    expect(inApp).toBeTruthy();
+    expect(inApp!.deliveryStatus).toBe('sent');
+
+    // La misma regla sale ademas por email: ese envio se audita aparte y CON
+    // destinatario, que es lo que exige RT-013.
+    const email = payloads.find((p) => p.eventType === 'caso_creado' && p.channel === 'email');
+    expect(email).toBeTruthy();
+    expect(email!.recipientEmail).toBeTruthy();
   });
 
   it('transicion crear_revision -> TCOM13 (avisos internos advisory)', async () => {

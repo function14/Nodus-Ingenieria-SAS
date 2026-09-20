@@ -93,6 +93,27 @@ El botón **"Ver como"** del encabezado cambia de rol re-autenticando como ese u
 6. **“Revisar SLA”** en el dashboard → aparecen alertas en **Alertas**; en **Workflow** ves la máquina
    de estados tal como está configurada en la base de datos.
 
+### Comprobar el canal de correo
+
+Las comunicaciones se rigen por plantillas **TCOM** y una tabla de reglas
+`evento → plantilla → destinatario → canal`. Dos de esas reglas salen por **email**, y las
+dispara el propio recorrido de arriba:
+
+| Qué haces | Regla | Quién recibiría |
+|---|---|---|
+| **“Revisar SLA”** (paso 6) | `sla_breached` → **TCOM9** | `advisory@demo.nodus` |
+| Creas un caso de *RetailModa* (paso 2) | `caso_creado` → **TCOM1** | `mipyme@demo.nodus` |
+
+En **Alertas** verás el registro de envío: destinatario, asunto renderizado y estado de
+entrega. Sin proveedor configurado el estado es **“sin proveedor configurado”** — el sistema
+**no finge** que envió. Cada envío queda además encadenado en la bitácora con su
+destinatario, que es lo que exige RT-013.
+
+Para que salgan correos de verdad basta con añadir `RESEND_API_KEY` (y `EMAIL_FROM` con un
+dominio verificado): esos mismos registros pasan a **“entregado”**, sin tocar una línea de
+código. En demos, `EMAIL_REDIRECT_TO` manda todo el correo a un único buzón para no escribir
+nunca a terceros, conservando en la bitácora el destinatario real.
+
 ---
 
 ## Comandos

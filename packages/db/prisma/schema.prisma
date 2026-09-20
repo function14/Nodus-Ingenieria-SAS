@@ -282,7 +282,12 @@ model Notification {
   templateCode   String?
   recipientRole  String?
   channel        String   @default("in_app") // in_app | email
-  deliveryStatus String   @default("pending") // pending | sent | failed
+  deliveryStatus String   @default("pending") // pending | sent | failed | not_configured
+  /// Destinatario y asunto reales del envio. RT-013 exige registrar la
+  /// comunicacion enviada con su destinatario; ademas permite comprobar el
+  /// canal email sin necesidad de acceder a un buzon.
+  recipientEmail String?
+  subject        String?
   sentAt         DateTime?
   // Variables con las que se renderizo la plantilla. Se guardan para poder
   // re-renderizar POR LECTOR y aplicar el masking (un aviso de difusion es

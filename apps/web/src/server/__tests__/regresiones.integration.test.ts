@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { prisma } from '@nodus/db';
 import { MASKED_COMPANY, MASKED_TITLE } from '@nodus/rbac';
 import { createObjectStorage, storageConfigFromEnv } from '@nodus/storage';
+import { notify } from '@nodus/notifications';
 import { appRouter } from '../routers/_app';
 import { createCallerFactory } from '../trpc';
 import type { Context } from '../context';
@@ -304,5 +305,58 @@ describe('R3 - una version documental solo cuenta si el servidor la verifica', (
     });
     expect(tras.ok).toBe(false);
     expect(tras.reason).toBe('alterado');
+  });
+});
+
+/* ------------------------------------------------------------------ */
+describe('R4 - el canal email deja registro comprobable (RT-013)', () => {
+  it('una regla en canal email registra destinatario y asunto', async () => {
+    const mip = await prisma.user.findFirstOrThrow({ where: { role: { code: 'mipyme' } } });
+    const kase = await prisma.case.findFirstOrThrow({ where: { companyId: mip.companyId! } });
+
+    await notify({
+      prisma,
+      tenantId,
+      eventType: 'caso_creado',
+      caseId: kase.id,
+      actorId: null,
+    });
+
+    const email = await prisma.notification.findFirst({
+      where: { caseId: kase.id, channel: 'email', templateCode: 'TCOM1' },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(email).toBeTruthy();
+    expect(email!.recipientEmail).toBe(mip.email);
+    expect(email!.subject).toContain('Confirmación');
+  });
+
+  it('sin proveedor configurado NO se finge el envio', async () => {
+    // El registro existe para poder comprobar el canal, pero su estado dice la
+    // verdad: 'not_configured', nunca 'sent'.
+    const sinEnviar = await prisma.notification.count({
+      where: { channel: 'email', deliveryStatus: 'sent', sentAt: null },
+    });
+    expect(sinEnviar).toBe(0);
+
+    if (!process.env.RESEND_API_KEY) {
+      const filas = await prisma.notification.findMany({ where: { channel: 'email' } });
+      expect(filas.length).toBeGreaterThan(0);
+      for (const f of filas) expect(f.deliveryStatus).toBe('not_configured');
+    }
+  });
+
+  it('el envio queda encadenado en la bitacora con su destinatario', async () => {
+    const email = await prisma.notification.findFirstOrThrow({
+      where: { channel: 'email' },
+      orderBy: { createdAt: 'desc' },
+    });
+    const log = await prisma.auditLog.findFirst({
+      where: { tenantId, action: 'COMUNICACION_ENVIADA', entityId: email.id },
+    });
+    expect(log).toBeTruthy();
+    const payload = log!.payload as Record<string, unknown>;
+    expect(payload.channel).toBe('email');
+    expect(payload.recipientEmail).toBe(email.recipientEmail);
   });
 });

@@ -74,6 +74,8 @@ async function appendCommunicationLog(ctx: {
   recipientRole: string | null;
   channel: string;
   deliveryStatus: string;
+  recipientEmail?: string | null;
+  redirectedTo?: string | null;
 }): Promise<ChainEntry> {
   const rec = {
     seq: ctx.seq,
@@ -88,6 +90,8 @@ async function appendCommunicationLog(ctx: {
       recipientRole: ctx.recipientRole,
       channel: ctx.channel,
       deliveryStatus: ctx.deliveryStatus,
+      ...(ctx.recipientEmail ? { recipientEmail: ctx.recipientEmail } : {}),
+      ...(ctx.redirectedTo ? { redirectedTo: ctx.redirectedTo } : {}),
     },
   };
   const rowHash = computeRowHash(ctx.prevHash, rec);
@@ -223,12 +227,16 @@ export async function notify(params: NotifyParams): Promise<NotifyResult> {
     chain = { seq: inAppEntry.seq + 1, rowHash: inAppEntry.rowHash };
     logs += 1;
 
-    // Canal email: se DEJA PENDIENTE, nunca se envia aqui.
-    // notify() corre dentro de la transaccion de dominio; una llamada de red
-    // dentro del tx bloquea filas y, si la transaccion revierte, el correo ya
-    // salio y no se puede deshacer. El envio real lo hace
-    // dispatchPendingEmails() despues del commit.
-    if (rule.channel === 'email' && emailConfigured()) {
+    // Canal email. Dos reglas:
+    //  - El envio NUNCA ocurre aqui: notify() corre dentro de la transaccion
+    //    de dominio, y una llamada de red dentro del tx bloquea filas y, si la
+    //    transaccion revierte, el correo ya salio. Lo manda
+    //    dispatchPendingEmails() tras el commit.
+    //  - El REGISTRO se crea siempre, haya proveedor o no. Si no lo hay queda
+    //    en 'not_configured': la comunicacion es comprobable (RT-013 pide su
+    //    destinatario) sin fingir que se envio.
+    if (rule.channel === 'email') {
+      const configured = emailConfigured();
       const recipients = await resolveEmailRecipients({
         prisma,
         tenantId,
@@ -239,6 +247,7 @@ export async function notify(params: NotifyParams): Promise<NotifyResult> {
       });
 
       for (const rc of recipients) {
+        const status = configured ? 'pending' : 'not_configured';
         const emailRow = await prisma.notification.create({
           data: {
             tenantId,
@@ -249,8 +258,10 @@ export async function notify(params: NotifyParams): Promise<NotifyResult> {
             templateCode: rule.templateCode,
             recipientRole: rule.recipientRole,
             channel: 'email',
-            deliveryStatus: 'pending',
-            vars: { ...vars, __to: rc.email } as Prisma.InputJsonValue,
+            deliveryStatus: status,
+            recipientEmail: rc.email,
+            subject,
+            vars: vars as Prisma.InputJsonValue,
           },
         });
         notifications += 1;
@@ -267,7 +278,10 @@ export async function notify(params: NotifyParams): Promise<NotifyResult> {
           templateCode: rule.templateCode,
           recipientRole: rule.recipientRole,
           channel: 'email',
-          deliveryStatus: 'pending',
+          deliveryStatus: status,
+          // Se registra ya al crear: si no hay proveedor, el despacho nunca
+          // corre y esta seria la unica traza del destinatario (RT-013).
+          recipientEmail: rc.email,
         });
         chain = { seq: emailEntry.seq + 1, rowHash: emailEntry.rowHash };
         logs += 1;
@@ -306,23 +320,17 @@ export async function dispatchPendingEmails(params: {
   let failed = 0;
 
   for (const row of pending) {
-    const vars = (row.vars ?? {}) as Record<string, string | number | null | undefined> & {
-      __to?: string;
-    };
-    const to = vars.__to;
-    if (!to) {
+    const intended = row.recipientEmail;
+    if (!intended) {
       failed += 1;
       continue;
     }
-
-    const tv = await prisma.templateVersion.findFirst({
-      where: { template: { code: row.templateCode ?? '' }, isActive: true },
-      orderBy: { version: 'desc' },
-      include: { template: true },
-    });
-    const subject = tv
-      ? renderSubject(tv.subject, vars, tv.template.name)
-      : (row.templateCode ?? 'NODUS');
+    // En entornos que no son produccion, EMAIL_REDIRECT_TO manda todo el correo
+    // a un unico buzon: una demo nunca debe escribir a terceros. El
+    // destinatario que HABRIA recibido queda igualmente en la bitacora.
+    const redirect = process.env.EMAIL_REDIRECT_TO?.trim();
+    const to = redirect && redirect.length > 0 ? redirect : intended;
+    const subject = row.subject ?? row.templateCode ?? 'NODUS';
 
     const outcome = await sendEmail({ to, subject, body: row.message });
     const status = outcome.ok ? 'sent' : outcome.skipped ? 'pending' : 'failed';
@@ -354,6 +362,8 @@ export async function dispatchPendingEmails(params: {
         recipientRole: row.recipientRole,
         channel: 'email',
         deliveryStatus: status,
+        recipientEmail: intended,
+        redirectedTo: to === intended ? null : to,
       });
     });
   }
