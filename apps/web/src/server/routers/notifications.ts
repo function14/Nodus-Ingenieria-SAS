@@ -154,7 +154,7 @@ export const notificationsRouter = router({
       });
       if (!row) throw new TRPCError({ code: 'NOT_FOUND' });
       if (row.channel !== 'email') {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Esta comunicacion no es de correo' });
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Esta comunicación no es de correo' });
       }
 
       const tpls = await loadTemplates(ctx.prisma, row.templateCode ? [row.templateCode] : []);

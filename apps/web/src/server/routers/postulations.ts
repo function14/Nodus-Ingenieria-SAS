@@ -14,7 +14,7 @@ export const postulationsRouter = router({
       });
       if (!c) throw new TRPCError({ code: 'NOT_FOUND' });
       if (c.currentState.code !== 'EN_POSTULACION') {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'El caso no esta en bolsa (EN_POSTULACION)' });
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'El caso no está en bolsa (EN_POSTULACION)' });
       }
 
       // RF-027/028: habilitacion previa, la guarda completa vive en rbac.
@@ -25,7 +25,7 @@ export const postulationsRouter = router({
         { status: consultant.status, specialtyCodes: consultant.specialtyCodes, levelCode: consultant.levelCode, availability: consultant.availability },
         { areaCode: c.areaCode, complexityLevel: c.complexityLevel },
       )) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Tu perfil consultor no esta habilitado para este caso' });
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Tu perfil consultor no está habilitado para este caso' });
       }
 
       const existing = await ctx.prisma.postulation.findUnique({

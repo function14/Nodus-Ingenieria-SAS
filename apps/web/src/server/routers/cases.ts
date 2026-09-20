@@ -145,12 +145,12 @@ export const casesRouter = router({
       });
       if (!c) throw new TRPCError({ code: 'NOT_FOUND' });
       if (c.currentState.code !== 'EN_POSTULACION') {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'El caso no esta en postulacion (EN_POSTULACION)' });
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'El caso no está en postulación (EN_POSTULACION)' });
       }
       const post = await ctx.prisma.postulation.findUnique({
         where: { caseId_consultorId: { caseId: input.caseId, consultorId: input.consultorId } },
       });
-      if (!post) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Ese consultor no se postulo a este caso' });
+      if (!post) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Ese consultor no se postuló a este caso' });
 
       await ctx.prisma.$transaction([
         ctx.prisma.case.update({ where: { id: input.caseId }, data: { assignedUserId: input.consultorId } }),
@@ -202,7 +202,7 @@ export const casesRouter = router({
         where: { id: input.companyId, tenantId: ctx.user.tenantId },
         select: { id: true },
       });
-      if (!company) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Empresa invalida' });
+      if (!company) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Empresa inválida' });
 
       const initial = await ctx.prisma.caseState.findFirst({ where: { isInitial: true } });
       if (!initial) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Sin estado inicial' });
@@ -302,7 +302,7 @@ export const casesRouter = router({
       });
       if (!c) throw new TRPCError({ code: 'NOT_FOUND' });
       if (c.currentState.code !== 'EN_REVISION') {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Solo se pide aclaracion en EN_REVISION' });
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Solo se pide aclaración en EN_REVISION' });
       }
 
       const tv = await ctx.prisma.templateVersion.findFirst({

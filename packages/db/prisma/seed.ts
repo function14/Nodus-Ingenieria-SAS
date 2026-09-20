@@ -82,12 +82,12 @@ await prisma.notification.deleteMany();
   }
 
   const lov = [
-    { code: 'areas', name: 'Areas', items: ['Estrategia', 'Finanzas', 'Operaciones', 'Marketing', 'Legal', 'Tecnologia'] },
+    { code: 'areas', name: 'Áreas', items: ['Estrategia', 'Finanzas', 'Operaciones', 'Marketing', 'Legal', 'Tecnología'] },
     { code: 'complejidad', name: 'Complejidad', items: ['Baja', 'Media', 'Alta'] },
     { code: 'urgencia', name: 'Urgencia', items: ['Baja', 'Media', 'Alta'] },
     { code: 'impacto', name: 'Impacto', items: ['Bajo', 'Medio', 'Alto'] },
     { code: 'nivel_consultor', name: 'Nivel de consultor', items: ['Junior', 'Semi-Senior', 'Senior'] },
-    { code: 'estado_consultor', name: 'Estado del consultor', items: ['Registrado', 'En validacion', 'Habilitado', 'Condicionado', 'Suspendido', 'Inactivo'] },
+    { code: 'estado_consultor', name: 'Estado del consultor', items: ['Registrado', 'En validación', 'Habilitado', 'Condicionado', 'Suspendido', 'Inactivo'] },
     { code: 'disponibilidad_consultor', name: 'Disponibilidad del consultor', items: ['Disponible', 'Ocupado'] },
   ];
   for (const g of lov) {
@@ -102,28 +102,28 @@ await prisma.notification.deleteMany();
   const stateData = [
     // --- ciclo de vida basico (puntos 1-2) ---
     { code: 'CREADO', name: 'Creado', order: 1, isInitial: true, isTerminal: false, color: '#F97316' },
-    { code: 'EN_REVISION', name: 'En revision', order: 2, isInitial: false, isTerminal: false, color: '#7C3AED' },
+    { code: 'EN_REVISION', name: 'En revisión', order: 2, isInitial: false, isTerminal: false, color: '#7C3AED' },
     { code: 'CLASIFICADO', name: 'Clasificado', order: 3, isInitial: false, isTerminal: false, color: '#0D9488' },
     // --- punto 3: bolsa interna ---
-    { code: 'EN_POSTULACION', name: 'En postulacion', order: 4, isInitial: false, isTerminal: false, color: '#0284C7' },
+    { code: 'EN_POSTULACION', name: 'En postulación', order: 4, isInitial: false, isTerminal: false, color: '#0284C7' },
     { code: 'ASIGNADO', name: 'Asignado', order: 5, isInitial: false, isTerminal: false, color: '#64748B' },
     // --- punto 4: diseno ---
-    { code: 'PROPUESTA_EN_DISENO', name: 'Propuesta en diseno', order: 6, isInitial: false, isTerminal: false, color: '#6366F1' },
+    { code: 'PROPUESTA_EN_DISENO', name: 'Propuesta en diseño', order: 6, isInitial: false, isTerminal: false, color: '#6366F1' },
     // --- punto 5: QA ---
     { code: 'PROPUESTA_LISTA_QA', name: 'Propuesta lista para QA', order: 7, isInitial: false, isTerminal: false, color: '#8B5CF6' },
     // --- punto 6: envio y decision ---
     { code: 'PROPUESTA_ENVIADA', name: 'Propuesta enviada', order: 8, isInitial: false, isTerminal: false, color: '#0891B2' },
-    { code: 'EN_DECISION_CLIENTE', name: 'En decision del cliente', order: 9, isInitial: false, isTerminal: false, color: '#D97706' },
+    { code: 'EN_DECISION_CLIENTE', name: 'En decisión del cliente', order: 9, isInitial: false, isTerminal: false, color: '#D97706' },
     { code: 'AJUSTES_DE_PROPUESTA', name: 'Ajustes de propuesta', order: 10, isInitial: false, isTerminal: false, color: '#B45309' },
     { code: 'PROPUESTA_ACEPTADA', name: 'Propuesta aceptada', order: 11, isInitial: false, isTerminal: false, color: '#16A34A' },
     // --- punto 7: contratacion ---
-    { code: 'PENDIENTE_CONTRATACION', name: 'Pendiente de contratacion', order: 12, isInitial: false, isTerminal: false, color: '#4D7C0F' },
-    { code: 'AUTORIZADO_EJECUCION', name: 'Autorizado para ejecucion', order: 13, isInitial: false, isTerminal: false, color: '#A16207' },
+    { code: 'PENDIENTE_CONTRATACION', name: 'Pendiente de contratación', order: 12, isInitial: false, isTerminal: false, color: '#4D7C0F' },
+    { code: 'AUTORIZADO_EJECUCION', name: 'Autorizado para ejecución', order: 13, isInitial: false, isTerminal: false, color: '#A16207' },
     // --- punto 8: ejecucion ---
-    { code: 'EN_EJECUCION', name: 'En ejecucion', order: 14, isInitial: false, isTerminal: false, color: '#CA8A04' },
+    { code: 'EN_EJECUCION', name: 'En ejecución', order: 14, isInitial: false, isTerminal: false, color: '#CA8A04' },
     // --- punto 9: cierre ---
     { code: 'LISTO_PARA_CIERRE', name: 'Listo para cierre', order: 15, isInitial: false, isTerminal: false, color: '#65A30D' },
-    { code: 'CERRADO_SIN_CONTRATACION', name: 'Cerrado sin contratacion', order: 16, isInitial: false, isTerminal: true, color: '#78716C' },
+    { code: 'CERRADO_SIN_CONTRATACION', name: 'Cerrado sin contratación', order: 16, isInitial: false, isTerminal: true, color: '#78716C' },
     { code: 'CERRADO', name: 'Cerrado', order: 17, isInitial: false, isTerminal: true, color: '#16A34A' },
   ];
   const states: Record<string, string> = {};
@@ -134,27 +134,27 @@ await prisma.notification.deleteMany();
 
   const transitions = [
     // punto 1-2: apertura y revision
-    { code: 'devolver_a_cliente', name: 'Devolver a la empresa (ampliacion de informacion)', from: 'EN_REVISION', to: 'CREADO', roles: ['advisory'], guards: [], effects: { commEvents: ['solicitud_aclaracion'] } },
-    { code: 'crear_revision', name: 'Enviar a revision', from: 'CREADO', to: 'EN_REVISION', roles: ['advisory', 'system'], guards: [], effects: { commEvents: ['caso_en_revision'] } },
+    { code: 'devolver_a_cliente', name: 'Devolver a la empresa (ampliación de información)', from: 'EN_REVISION', to: 'CREADO', roles: ['advisory'], guards: [], effects: { commEvents: ['solicitud_aclaracion'] } },
+    { code: 'crear_revision', name: 'Enviar a revisión', from: 'CREADO', to: 'EN_REVISION', roles: ['advisory', 'system'], guards: [], effects: { commEvents: ['caso_en_revision'] } },
     { code: 'clasificar', name: 'Clasificar', from: 'EN_REVISION', to: 'CLASIFICADO', roles: ['advisory'], guards: [], effects: { commEvents: ['caso_habilitado_postulacion'] } },
     { code: 'reclasificar', name: 'Reclasificar', from: 'CLASIFICADO', to: 'EN_REVISION', roles: ['advisory'], guards: [], effects: { commEvents: ['caso_en_revision'] } },
     // punto 3: bolsa interna y asignacion
     { code: 'publicar_bolsa', name: 'Publicar en bolsa', from: 'CLASIFICADO', to: 'EN_POSTULACION', roles: ['advisory'], guards: [], effects: { commEvents: ['oportunidad_publicada'] } },
     { code: 'asignar', name: 'Asignar consultor', from: 'EN_POSTULACION', to: 'ASIGNADO', roles: ['advisory'], guards: [], effects: { commEvents: ['consultor_asignado'] } },
     // punto 4-5-6: diseno, QA, envio y decision
-    { code: 'iniciar_diseno', name: 'Iniciar diseno de propuesta', from: 'ASIGNADO', to: 'PROPUESTA_EN_DISENO', roles: ['consultor'], guards: [{ type: 'assigneeMustAct' }], effects: { commEvents: ['propuesta_en_diseno'] } },
+    { code: 'iniciar_diseno', name: 'Iniciar diseño de propuesta', from: 'ASIGNADO', to: 'PROPUESTA_EN_DISENO', roles: ['consultor'], guards: [{ type: 'assigneeMustAct' }], effects: { commEvents: ['propuesta_en_diseno'] } },
     { code: 'propuesta_lista_qa', name: 'Propuesta lista para QA', from: 'PROPUESTA_EN_DISENO', to: 'PROPUESTA_LISTA_QA', roles: ['consultor'], guards: [{ type: 'assigneeMustAct' }], effects: { commEvents: ['propuesta_lista_qa'] } },
-    { code: 'autorizar_envio_propuesta', name: 'Autorizar envio de propuesta', from: 'PROPUESTA_LISTA_QA', to: 'PROPUESTA_ENVIADA', roles: ['advisory'], guards: [], effects: { commEvents: ['propuesta_enviada'] } },
-    { code: 'abrir_periodo_decision', name: 'Abrir periodo de decision', from: 'PROPUESTA_ENVIADA', to: 'EN_DECISION_CLIENTE', roles: ['advisory', 'system'], guards: [], effects: { commEvents: ['en_decision_cliente'] } },
+    { code: 'autorizar_envio_propuesta', name: 'Autorizar envío de propuesta', from: 'PROPUESTA_LISTA_QA', to: 'PROPUESTA_ENVIADA', roles: ['advisory'], guards: [], effects: { commEvents: ['propuesta_enviada'] } },
+    { code: 'abrir_periodo_decision', name: 'Abrir período de decisión', from: 'PROPUESTA_ENVIADA', to: 'EN_DECISION_CLIENTE', roles: ['advisory', 'system'], guards: [], effects: { commEvents: ['en_decision_cliente'] } },
     { code: 'solicitar_ajustes', name: 'Solicitar ajustes de propuesta', from: 'EN_DECISION_CLIENTE', to: 'AJUSTES_DE_PROPUESTA', roles: ['mipyme', 'advisory'], guards: [{ type: 'companyOwnerMustAct', role: 'mipyme' }], effects: { commEvents: ['ajustes_propuesta'] } },
     { code: 'reenviar_propuesta', name: 'Reenviar propuesta ajustada', from: 'AJUSTES_DE_PROPUESTA', to: 'PROPUESTA_ENVIADA', roles: ['consultor'], guards: [{ type: 'assigneeMustAct' }], effects: { commEvents: ['propuesta_enviada'] } },
     { code: 'aceptar_propuesta', name: 'Aceptar propuesta', from: 'EN_DECISION_CLIENTE', to: 'PROPUESTA_ACEPTADA', roles: ['mipyme'], guards: [{ type: 'companyOwnerMustAct' }], effects: { commEvents: ['propuesta_aceptada'] } },
-    { code: 'cerrar_sin_contratacion', name: 'Cerrar sin contratacion', from: 'EN_DECISION_CLIENTE', to: 'CERRADO_SIN_CONTRATACION', roles: ['mipyme', 'advisory'], guards: [{ type: 'companyOwnerMustAct', role: 'mipyme' }], effects: { commEvents: ['cierre_sin_contratacion'] } },
+    { code: 'cerrar_sin_contratacion', name: 'Cerrar sin contratación', from: 'EN_DECISION_CLIENTE', to: 'CERRADO_SIN_CONTRATACION', roles: ['mipyme', 'advisory'], guards: [{ type: 'companyOwnerMustAct', role: 'mipyme' }], effects: { commEvents: ['cierre_sin_contratacion'] } },
     // punto 7: contratacion y autorizacion
-    { code: 'formalizar_contratacion', name: 'Formalizar contratacion', from: 'PROPUESTA_ACEPTADA', to: 'PENDIENTE_CONTRATACION', roles: ['advisory'], guards: [], effects: { commEvents: ['contratacion_pendiente'] } },
-    { code: 'autorizar_ejecucion', name: 'Autorizar ejecucion', from: 'PENDIENTE_CONTRATACION', to: 'AUTORIZADO_EJECUCION', roles: ['advisory'], guards: [], effects: { commEvents: ['autorizado_ejecucion'] } },
+    { code: 'formalizar_contratacion', name: 'Formalizar contratación', from: 'PROPUESTA_ACEPTADA', to: 'PENDIENTE_CONTRATACION', roles: ['advisory'], guards: [], effects: { commEvents: ['contratacion_pendiente'] } },
+    { code: 'autorizar_ejecucion', name: 'Autorizar ejecución', from: 'PENDIENTE_CONTRATACION', to: 'AUTORIZADO_EJECUCION', roles: ['advisory'], guards: [], effects: { commEvents: ['autorizado_ejecucion'] } },
     // punto 8: ejecucion
-    { code: 'iniciar_ejecucion', name: 'Iniciar ejecucion', from: 'AUTORIZADO_EJECUCION', to: 'EN_EJECUCION', roles: ['advisory', 'system'], guards: [], effects: { commEvents: ['inicio_ejecucion'] } },
+    { code: 'iniciar_ejecucion', name: 'Iniciar ejecución', from: 'AUTORIZADO_EJECUCION', to: 'EN_EJECUCION', roles: ['advisory', 'system'], guards: [], effects: { commEvents: ['inicio_ejecucion'] } },
     // punto 9: cierre
     { code: 'listo_cierre', name: 'Marcar listo para cierre', from: 'EN_EJECUCION', to: 'LISTO_PARA_CIERRE', roles: ['consultor'], guards: [{ type: 'assigneeMustAct' }], effects: { commEvents: ['listo_cierre'] } },
     { code: 'cerrar', name: 'Cerrar / aceptar cierre', from: 'LISTO_PARA_CIERRE', to: 'CERRADO', roles: ['mipyme', 'advisory'], guards: [{ type: 'companyOwnerMustAct', role: 'mipyme' }], effects: { commEvents: ['cierre_caso'] } },
@@ -174,11 +174,11 @@ await prisma.notification.deleteMany();
         type: 'object',
         required: ['titulo', 'area', 'descripcion'],
         properties: {
-          titulo: { type: 'string', title: 'Titulo del caso', minLength: 3 },
-          area: { type: 'string', title: 'Area', enum: ['estrategia', 'finanzas', 'operaciones', 'marketing', 'legal', 'tecnologia'] },
+          titulo: { type: 'string', title: 'Título del caso', minLength: 3 },
+          area: { type: 'string', title: 'Área', enum: ['estrategia', 'finanzas', 'operaciones', 'marketing', 'legal', 'tecnologia'] },
           urgencia: { type: 'string', title: 'Urgencia', enum: ['baja', 'media', 'alta'], default: 'media' },
           complejidad: { type: 'string', title: 'Complejidad', enum: ['baja', 'media', 'alta'], default: 'media' },
-          descripcion: { type: 'string', title: 'Descripcion de la necesidad', minLength: 10 },
+          descripcion: { type: 'string', title: 'Descripción de la necesidad', minLength: 10 },
         },
       },
       uiSchema: { descripcion: { widget: 'textarea' } },
@@ -211,7 +211,7 @@ await prisma.notification.deleteMany();
         type: 'object',
         required: ['experiencia_anios', 'referencias', 'disponibilidad'],
         properties: {
-          experiencia_anios: { type: 'integer', title: 'Anios de experiencia', minimum: 0 },
+          experiencia_anios: { type: 'integer', title: 'Años de experiencia', minimum: 0 },
           referencias: { type: 'string', title: 'Referencias', minLength: 5 },
           disponibilidad: { type: 'string', title: 'Disponibilidad', enum: ['disponible', 'ocupado'], default: 'disponible' },
         },
@@ -220,7 +220,7 @@ await prisma.notification.deleteMany();
     },
     {
       code: 'TC3',
-      name: 'Clasificacion y habilitacion',
+      name: 'Clasificación y habilitación',
       jsonSchema: {
         type: 'object',
         required: ['nivel', 'especialidades'],
@@ -453,7 +453,7 @@ await prisma.notification.deleteMany();
     slaRuleByState[s.stateCode] = { id: r.id, hours: s.hours };
   }
 
-  const companyNames = ['FoodTech SAS', 'RetailModa', 'Salud Total', 'Ingenieria Nova', 'Comercial Andes', 'Agricola del Sur', 'Transportes Rapidos'];
+  const companyNames = ['FoodTech SAS', 'RetailModa', 'Salud Total', 'Ingeniería Nova', 'Comercial Andes', 'Agrícola del Sur', 'Transportes Rápidos'];
   const companies: Record<string, string> = {};
   for (const name of companyNames) {
     const c = await prisma.company.create({
@@ -496,10 +496,10 @@ await prisma.notification.deleteMany();
     { humanId: 'NOD-2026-001', company: 'FoodTech SAS', state: 'CERRADO', assignee: 'consultor', area: 'finanzas', nivel: 'alta' },
     { humanId: 'NOD-2026-002', company: 'RetailModa', state: 'EN_EJECUCION', assignee: 'consultor', area: 'operaciones', nivel: 'media' },
     { humanId: 'NOD-2026-003', company: 'Salud Total', state: 'EN_POSTULACION', assignee: null, area: 'finanzas', nivel: 'media' },
-    { humanId: 'NOD-2026-004', company: 'Ingenieria Nova', state: 'CLASIFICADO', assignee: null, area: 'tecnologia', nivel: 'alta' },
+    { humanId: 'NOD-2026-004', company: 'Ingeniería Nova', state: 'CLASIFICADO', assignee: null, area: 'tecnologia', nivel: 'alta' },
     { humanId: 'NOD-2026-005', company: 'Comercial Andes', state: 'CLASIFICADO', assignee: null, area: 'marketing', nivel: 'baja' },
-    { humanId: 'NOD-2026-008', company: 'Agricola del Sur', state: 'CREADO', assignee: null, area: 'operaciones', nivel: 'media' },
-    { humanId: 'NOD-2026-009', company: 'Transportes Rapidos', state: 'CREADO', assignee: null, area: 'operaciones', nivel: 'media' },
+    { humanId: 'NOD-2026-008', company: 'Agrícola del Sur', state: 'CREADO', assignee: null, area: 'operaciones', nivel: 'media' },
+    { humanId: 'NOD-2026-009', company: 'Transportes Rápidos', state: 'CREADO', assignee: null, area: 'operaciones', nivel: 'media' },
   ];
 
   let seq = 0;

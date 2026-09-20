@@ -78,7 +78,7 @@ async function conRepositorio<T>(fn: () => Promise<T>): Promise<T> {
     throw new TRPCError({
       code: 'PRECONDITION_FAILED',
       message:
-        'El repositorio documental no esta disponible. Configura Cloudflare R2 (R2_*) ' +
+        'El repositorio documental no está disponible. Configura Cloudflare R2 (R2_*) ' +
         'o levanta MinIO en local; el resto del caso no se ve afectado.',
       cause: e,
     });
@@ -235,14 +235,14 @@ export const documentsRouter = router({
       if (!object) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'El archivo no llego al repositorio; reintenta la subida',
+          message: 'El archivo no llegó al repositorio; reintenta la subida',
         });
       }
       const actual = createHash('sha256').update(object).digest('hex');
       if (actual !== dv.checksum.toLowerCase() || object.length !== dv.sizeBytes) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'El archivo almacenado no coincide con el declarado; la version no se confirma',
+          message: 'El archivo almacenado no coincide con el declarado; la versión no se confirma',
         });
       }
 

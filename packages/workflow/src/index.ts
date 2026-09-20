@@ -53,17 +53,17 @@ function evaluateGuards(guards: unknown, ctx: GuardContext): void {
     switch (rule?.type) {
       case 'assigneeRequired':
         if (!ctx.assignedUserId) {
-          throw new WorkflowError('INVALID_STATE', 'La transicion requiere un consultor asignado');
+          throw new WorkflowError('INVALID_STATE', 'La transición requiere un consultor asignado');
         }
         break;
       case 'assigneeMustAct':
         if (!ctx.assignedUserId || ctx.assignedUserId !== ctx.actorId) {
-          throw new WorkflowError('FORBIDDEN', 'Solo el consultor asignado puede ejecutar esta transicion');
+          throw new WorkflowError('FORBIDDEN', 'Solo el consultor asignado puede ejecutar esta transición');
         }
         break;
       case 'companyOwnerMustAct':
         if (!ctx.caseCompanyId || ctx.caseCompanyId !== ctx.companyId) {
-          throw new WorkflowError('FORBIDDEN', 'Solo la empresa duena del caso puede ejecutar esta transicion');
+          throw new WorkflowError('FORBIDDEN', 'Solo la empresa dueña del caso puede ejecutar esta transición');
         }
         break;
     }
@@ -93,17 +93,17 @@ export async function executeTransition(params: {
       where: { code: transitionCode },
       include: { fromState: true, toState: true },
     });
-    if (!transition) throw new WorkflowError('BAD_TRANSITION', 'Transicion inexistente');
+    if (!transition) throw new WorkflowError('BAD_TRANSITION', 'Transición inexistente');
 
     // --- GUARDAS ---
     if (transition.fromStateId !== kase.currentStateId) {
-      throw new WorkflowError('INVALID_STATE', 'La transicion no aplica al estado actual del caso');
+      throw new WorkflowError('INVALID_STATE', 'La transición no aplica al estado actual del caso');
     }
     if (expectedVersion !== undefined && expectedVersion !== kase.version) {
-      throw new WorkflowError('VERSION_CONFLICT', 'El caso cambio; recarga e intenta de nuevo');
+      throw new WorkflowError('VERSION_CONFLICT', 'El caso cambió; recarga e intenta de nuevo');
     }
     if (!transition.allowedRoles.includes(actor.role)) {
-      throw new WorkflowError('FORBIDDEN', 'Tu rol no puede ejecutar esta transicion');
+      throw new WorkflowError('FORBIDDEN', 'Tu rol no puede ejecutar esta transición');
     }
     evaluateGuards(transition.guards, {
       assignedUserId: kase.assignedUserId,
@@ -119,7 +119,7 @@ export async function executeTransition(params: {
       data: { currentStateId: transition.toStateId, version: { increment: 1 } },
     });
     if (swap.count !== 1) {
-      throw new WorkflowError('VERSION_CONFLICT', 'El caso cambio durante la transicion');
+      throw new WorkflowError('VERSION_CONFLICT', 'El caso cambió durante la transición');
     }
 
     // --- BITACORA ENCADENADA (append-only) ---

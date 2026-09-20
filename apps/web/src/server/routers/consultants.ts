@@ -89,7 +89,7 @@ export const consultantsRouter = router({
           throw new TRPCError({
             code: 'FORBIDDEN',
             message:
-              'Tu especialidad y nivel los fija Advisory en la clasificacion; solo puedes cambiar tu disponibilidad',
+              'Tu especialidad y nivel los fija Advisory en la clasificación; solo puedes cambiar tu disponibilidad',
           });
         }
         consultant = await ctx.prisma.consultant.update({
