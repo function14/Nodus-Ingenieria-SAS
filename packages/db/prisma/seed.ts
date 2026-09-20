@@ -704,7 +704,17 @@ await prisma.notification.deleteMany();
   console.log('  plantillas comunicacion:', commTemplates.length, '| reglas de comunicacion:', commRules.length, '| plantillas F4:', consultingTemplates.length);
   console.log('  empresas:', companyNames.length, '| casos:', caseData.length);
   console.log('  consultores:', consultantData.length, '(habilitado: Carlos CON-000001, registrado: Diana CON-000002)');
-  console.log('  documentos demo:', 1, '| versiones entregable demo:', 2);
+  // Se cuenta, no se afirma: el entregable demo se omite cuando no hay
+  // almacenamiento, y un resumen que no mide lo que dice no sirve de nada.
+  const docCount = await prisma.document.count();
+  const verCount = await prisma.documentVersion.count();
+  console.log(
+    '  documentos demo:',
+    docCount,
+    '| versiones:',
+    verCount,
+    docCount === 0 ? '(omitido: sin almacenamiento de objetos)' : '',
+  );
   console.log('  bitacora hash-chain:', seq, 'registros | ultimo hash:', (prevHash ?? '').slice(0, 16) + '...');
   console.log('  login demo -> advisory@demo.nodus / demo1234 (y consultor@, consultor2@, mipyme@, admin@)');
 }
