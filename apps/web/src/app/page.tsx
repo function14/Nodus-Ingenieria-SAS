@@ -87,7 +87,7 @@ export default function DashboardPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle size={15} className="text-warn" />
+                  <AlertTriangle size={15} className="text-warn-deep" />
                   Timers SLA
                 </CardTitle>
               </CardHeader>

@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { deriveFields } from '@nodus/forms/fields';
 
 const inputClass =
-  'rounded-lg border border-border px-3 py-2 bg-cream focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink w-full';
+  'rounded-lg border border-border-strong px-3 py-2 bg-cream focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink w-full';
 
 export function JsonSchemaForm({
   jsonSchema,

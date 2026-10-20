@@ -53,7 +53,7 @@ export default function NuevoCasoPage() {
             <select
               value={companyId}
               onChange={(e) => setCompanyId(e.target.value)}
-              className="rounded-lg border border-border px-3 py-2 bg-cream focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink w-full"
+              className="rounded-lg border border-border-strong px-3 py-2 bg-cream focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink w-full"
             >
               <option value="">Selecciona una empresa…</option>
               {companiesQ.data?.map((c) => (

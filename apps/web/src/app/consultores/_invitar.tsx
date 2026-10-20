@@ -51,7 +51,7 @@ export function InvitarConsultor() {
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
               placeholder="Laura Restrepo"
-              className="rounded-lg border border-border bg-transparent px-2.5 py-1.5 text-sm"
+              className="rounded-lg border border-border-strong bg-transparent px-2.5 py-1.5 text-sm"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs min-w-[16rem] flex-1">
@@ -62,13 +62,13 @@ export function InvitarConsultor() {
               value={correo}
               onChange={(e) => setCorreo(e.target.value)}
               placeholder="laura@consultora.com"
-              className="rounded-lg border border-border bg-transparent px-2.5 py-1.5 text-sm font-[family-name:var(--font-mono)]"
+              className="rounded-lg border border-border-strong bg-transparent px-2.5 py-1.5 text-sm font-[family-name:var(--font-mono)]"
             />
           </label>
           <button
             type="submit"
             disabled={invitar.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary-deep px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
           >
             <UserPlus size={14} />
             {invitar.isPending ? 'Registrando…' : 'Registrar'}
@@ -107,7 +107,7 @@ export function InvitarConsultor() {
                 }}
                 className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 hover:bg-cream-dark transition-colors"
               >
-                {copiado ? <Check size={12} className="text-success" /> : <Copy size={12} />}
+                {copiado ? <Check size={12} className="text-success-deep" /> : <Copy size={12} />}
                 {copiado ? 'Copiada' : 'Copiar'}
               </button>
             </div>

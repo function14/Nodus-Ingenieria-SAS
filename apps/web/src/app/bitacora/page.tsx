@@ -39,7 +39,7 @@ export default function BitacoraPage() {
         </CardHeader>
         <CardContent>
           {chain && (
-            <div className={`mb-3 flex items-center gap-2 text-sm ${chain.valid ? 'text-success' : 'text-danger'}`}>
+            <div className={`mb-3 flex items-center gap-2 text-sm ${chain.valid ? 'text-success-deep' : 'text-danger'}`}>
               {chain.valid ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
               {chain.valid
                 ? `Cadena íntegra: ${chain.count} registros sin manipulación.`

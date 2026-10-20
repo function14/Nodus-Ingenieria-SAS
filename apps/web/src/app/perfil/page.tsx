@@ -85,7 +85,7 @@ function PerfilConsultor() {
             onChange={(e) =>
               setLevel(e.target.value === '' ? null : (e.target.value as 'junior' | 'semi-senior' | 'senior'))
             }
-            className="rounded-lg border border-border bg-transparent px-2 py-1 text-sm"
+            className="rounded-lg border border-border-strong bg-transparent px-2 py-1 text-sm"
           >
             <option value="">— Sin definir —</option>
             {NIVELES.map((n) => (
@@ -98,7 +98,7 @@ function PerfilConsultor() {
           <select
             value={availability}
             onChange={(e) => setAvailability(e.target.value as 'disponible' | 'ocupado')}
-            className="rounded-lg border border-border bg-transparent px-2 py-1 text-sm"
+            className="rounded-lg border border-border-strong bg-transparent px-2 py-1 text-sm"
           >
             <option value="disponible">disponible</option>
             <option value="ocupado">ocupado</option>

@@ -13,10 +13,10 @@ import { trpc } from '@/lib/trpc/client';
  * verificar el correo exigiría acceso a un buzón.
  */
 const ESTADO: Record<string, { texto: string; clase: string }> = {
-  sent: { texto: 'entregado', clase: 'text-success' },
+  sent: { texto: 'entregado', clase: 'text-success-deep' },
   failed: { texto: 'fallo en el envío', clase: 'text-danger' },
   pending: { texto: 'en cola de envío', clase: 'text-ink-muted' },
-  not_configured: { texto: 'no enviado — sin proveedor', clase: 'text-warning' },
+  not_configured: { texto: 'no enviado — sin proveedor', clase: 'text-warn-deep' },
 };
 
 export function DeliveryBadge({
@@ -109,7 +109,7 @@ export function DeliveryBadge({
 
               {detalle.data.auditHash && (
                 <p className="mt-1 flex items-center gap-1 text-ink-muted">
-                  <ShieldCheck size={12} className="text-success shrink-0" />
+                  <ShieldCheck size={12} className="text-success-deep shrink-0" />
                   Bitácora #{detalle.data.auditSeq} ·{' '}
                   <span className="font-mono">{detalle.data.auditHash.slice(0, 16)}…</span>
                 </p>

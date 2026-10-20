@@ -228,7 +228,7 @@ export default function CaseDetailPage() {
             </div>
 
             {docError && <p role="alert" className="text-sm text-danger">{docError}</p>}
-            {docOk && <p role="status" className="text-sm text-success">{docOk}</p>}
+            {docOk && <p role="status" className="text-sm text-success-deep">{docOk}</p>}
 
             <div>
               <p className="text-xs text-ink-muted uppercase tracking-wide mb-2">
@@ -323,7 +323,7 @@ export default function CaseDetailPage() {
           {chain && (
             <div
               className={`mb-3 flex items-center gap-2 text-sm rounded-lg px-3 py-2 ${
-                chain.valid ? 'text-success' : 'text-danger'
+                chain.valid ? 'text-success-deep' : 'text-danger'
               }`}
             >
               {chain.valid ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}

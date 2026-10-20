@@ -26,7 +26,7 @@ export default function LoginPage() {
   }
 
   const inputClass =
-    'rounded-lg border border-border px-3 py-2 bg-cream focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink';
+    'rounded-lg border border-border-strong px-3 py-2 bg-cream focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink';
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-cream">

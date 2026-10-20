@@ -21,7 +21,7 @@ function StatusSelect({ userId, status }: { userId: string; status: string | nul
         if (!e.target.value) return;
         set.mutate({ userId, status: e.target.value as never });
       }}
-      className="rounded-lg border border-border bg-transparent px-2 py-1 text-xs font-medium"
+      className="rounded-lg border border-border-strong bg-transparent px-2 py-1 text-xs font-medium"
     >
       <option value="" disabled>—</option>
       {STATUS_ORDER.map((s) => (

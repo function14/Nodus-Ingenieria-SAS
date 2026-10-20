@@ -16,6 +16,18 @@
   --color-success: #16A34A;
   --color-danger: #DC2626;
 
+  /* Variantes de primer plano. Regla del sistema: los tonos base son para
+     RELLENOS y tintes; estas son para TEXTO E ICONOS, porque las base no
+     alcanzan el 4.5:1 que exige WCAG AA sobre crema ni sobre blanco
+     (success 3.30:1, warn 1.53:1). */
+  --color-success-deep: #15803D; /* 5.02:1 sobre blanco */
+  --color-warn-deep: #A16207;    /* 4.92:1 sobre blanco */
+
+  /* Borde de controles de formulario. El borde decorativo (--color-border,
+     1.23:1) vale para divisores de tabla, pero WCAG 1.4.11 exige 3:1 en lo
+     que delimita un control con el que se interactua. */
+  --color-border-strong: #8D7E5F; /* 3.72:1 sobre crema */
+
   --color-mipyme: #F97316;
   --color-consultor: #0D9488;
   --color-advisory: #7C3AED;

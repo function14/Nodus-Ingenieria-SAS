@@ -49,7 +49,7 @@ export default function WorkflowPage() {
                         </span>
                       )}
                       {s.isTerminal && (
-                        <span className="text-[10px] rounded-full bg-success/15 text-success px-1.5 py-0.5">
+                        <span className="text-[10px] rounded-full bg-success/15 text-success-deep px-1.5 py-0.5">
                           terminal
                         </span>
                       )}
