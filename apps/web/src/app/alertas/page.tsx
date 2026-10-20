@@ -2,6 +2,7 @@
 
 import { Bell } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
+import { SkeletonCards } from '@/components/ui/skeleton';
 import { DeliveryBadge } from './_delivery-badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
@@ -16,7 +17,7 @@ export default function AlertasPage() {
           <CardTitle>Notification Center</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading && <p className="text-sm text-ink-muted">Cargando notificaciones…</p>}
+          {isLoading && <SkeletonCards count={4} />}
           {error && (
             <p role="alert" className="text-sm text-danger">
               No se pudieron cargar las notificaciones: {error.message}

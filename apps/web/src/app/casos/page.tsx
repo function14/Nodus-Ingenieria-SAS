@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { canPerform } from '@nodus/rbac';
 import { trpc } from '@/lib/trpc/client';
+import { SkeletonTable } from '@/components/ui/skeleton';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 export default function CasosPage() {
@@ -30,7 +31,7 @@ export default function CasosPage() {
           <CardTitle>Casos en curso · desde PostgreSQL</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading && <p className="text-sm text-ink-muted">Cargando casos…</p>}
+          {isLoading && <SkeletonTable rows={6} cols={4} />}
 
           {error && (
             <p role="alert" className="text-sm text-danger">

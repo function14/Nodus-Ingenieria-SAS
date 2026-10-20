@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
+import { SkeletonLines } from '@/components/ui/skeleton';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { JsonSchemaForm } from '@/components/ui/json-schema-form';
 
@@ -64,7 +65,7 @@ export default function NuevoCasoPage() {
             </select>
           </label>
 
-          {templateQ.isLoading && <p className="text-sm text-ink-muted">Cargando plantilla…</p>}
+          {templateQ.isLoading && <SkeletonLines lines={5} />}
           {templateQ.data && (
             <JsonSchemaForm
               jsonSchema={templateQ.data.jsonSchema}

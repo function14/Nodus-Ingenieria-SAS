@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, ShieldCheck, ShieldAlert, Download, Upload, FileText } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { useToast } from '@/components/ui/toast';
+import { SkeletonLines, SkeletonTable } from '@/components/ui/skeleton';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 type DocKind = 'anexo' | 'entregable' | 'evidencia';
@@ -112,7 +113,13 @@ export default function CaseDetailPage() {
     }
   }
 
-  if (caseQ.isLoading) return <p className="text-sm text-ink-muted">Cargando expediente…</p>;
+  if (caseQ.isLoading)
+    return (
+      <div className="flex flex-col gap-4">
+        <SkeletonLines lines={3} />
+        <SkeletonTable rows={5} cols={4} />
+      </div>
+    );
   if (caseQ.error || !caseQ.data)
     return <p role="alert" className="text-sm text-danger">No se encontró el caso.</p>;
 

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
+import { SkeletonTable } from '@/components/ui/skeleton';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 export default function BitacoraPage() {
@@ -47,7 +48,7 @@ export default function BitacoraPage() {
             </div>
           )}
 
-          {isLoading && <p className="text-sm text-ink-muted">Cargando bitácora…</p>}
+          {isLoading && <SkeletonTable rows={8} cols={6} />}
           {error && <p role="alert" className="text-sm text-danger">{error.message}</p>}
           {data && data.length > 0 && (
             <div className="overflow-x-auto">

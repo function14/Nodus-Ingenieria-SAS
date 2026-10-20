@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Mail, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
+import { SkeletonLines } from '@/components/ui/skeleton';
 
 /**
  * Registro de envío de una comunicación (RT-013) y vista previa del correo.
@@ -80,7 +81,7 @@ export function DeliveryBadge({
 
       {abierto && (
         <div className="border-t border-border px-2.5 py-2">
-          {detalle.isLoading && <p className="text-ink-muted">Cargando…</p>}
+          {detalle.isLoading && <SkeletonLines lines={3} />}
           {detalle.error && <p className="text-danger">{detalle.error.message}</p>}
           {detalle.data && (
             <>

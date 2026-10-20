@@ -1,6 +1,7 @@
 'use client';
 
 import { trpc } from '@/lib/trpc/client';
+import { SkeletonTable } from '@/components/ui/skeleton';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 export default function EmpresasPage() {
@@ -14,7 +15,7 @@ export default function EmpresasPage() {
           <CardTitle>Empresa única · historial de casos</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading && <p className="text-sm text-ink-muted">Cargando empresas…</p>}
+          {isLoading && <SkeletonTable rows={5} cols={3} />}
           {error && <p role="alert" className="text-sm text-danger">{error.message}</p>}
           {data && data.length === 0 && (
             <p className="text-sm text-ink-muted">Aún no hay empresas registradas.</p>

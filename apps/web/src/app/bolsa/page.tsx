@@ -2,6 +2,7 @@
 
 import { useSession } from 'next-auth/react';
 import { trpc } from '@/lib/trpc/client';
+import { SkeletonCards } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
@@ -92,7 +93,7 @@ export default function BolsaPage() {
         </Card>
       )}
 
-      {bolsaQ.isLoading && <p className="text-sm text-ink-muted">Cargando bolsa…</p>}
+      {bolsaQ.isLoading && <SkeletonCards count={3} />}
       {bolsaQ.data && bolsaQ.data.length === 0 && (
         <p className="text-sm text-ink-muted">No hay casos clasificados en bolsa ahora mismo.</p>
       )}

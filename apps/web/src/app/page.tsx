@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Sparkles, Clock3, AlertTriangle } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
+import { SkeletonKpis } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 import { StatBlock } from '@/components/ui/stat-block';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -65,7 +66,7 @@ export default function DashboardPage() {
         </p>
       )}
 
-      {isLoading && <p className="text-sm text-ink-muted">Cargando panel…</p>}
+      {isLoading && <SkeletonKpis count={4} />}
 
       {data && (
         <>

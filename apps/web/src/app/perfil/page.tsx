@@ -4,6 +4,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { LogOut } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
+import { SkeletonLines } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 import { roles } from '@/lib/constants';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -52,7 +53,7 @@ function PerfilConsultor() {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3 text-sm">
-        {isLoading && <p className="text-sm text-ink-muted">Cargando…</p>}
+        {isLoading && <SkeletonLines lines={4} />}
         {data && (
           <p>
             Estado: <strong>{data.status}</strong>

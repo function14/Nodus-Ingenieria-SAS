@@ -2,6 +2,7 @@
 
 import { ArrowDown } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
+import { SkeletonLines } from '@/components/ui/skeleton';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 export default function WorkflowPage() {
@@ -16,7 +17,7 @@ export default function WorkflowPage() {
         </p>
       </div>
 
-      {isLoading && <p className="text-sm text-ink-muted">Cargando máquina de estados…</p>}
+      {isLoading && <SkeletonLines lines={6} />}
       {error && <p role="alert" className="text-sm text-danger">{error.message}</p>}
 
       {data && (

@@ -1,6 +1,7 @@
 'use client';
 
 import { trpc } from '@/lib/trpc/client';
+import { SkeletonTable } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { InvitarConsultor } from './_invitar';
@@ -49,7 +50,7 @@ export default function ConsultoresPage() {
           <CardTitle>Ecosistema de consultores habilitados</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading && <p className="text-sm text-ink-muted">Cargando consultores…</p>}
+          {isLoading && <SkeletonTable rows={4} cols={6} />}
           {error && <p role="alert" className="text-sm text-danger">{error.message}</p>}
           {data && data.length === 0 && (
             <p className="text-sm text-ink-muted">Aún no hay consultores.</p>
