@@ -1,7 +1,7 @@
 'use client';
 
-import { trpc } from '@/lib/trpc/client';
-import { SkeletonTable } from '@/components/ui/skeleton';
+import { trpc, type RouterOutputs } from '@/lib/trpc/client';
+import { DataTable, type Column } from '@/components/ui/data-table';
 import { useToast } from '@/components/ui/toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { InvitarConsultor } from './_invitar';
@@ -38,8 +38,79 @@ function StatusSelect({ userId, status }: { userId: string; status: string | nul
   );
 }
 
+type Consultor = RouterOutputs['consultants']['list'][number];
+
 export default function ConsultoresPage() {
   const { data, isLoading, error } = trpc.consultants.list.useQuery();
+
+  const columns: Column<Consultor>[] = [
+    {
+      key: 'name',
+      header: 'Consultor',
+      sortValue: (u) => u.name,
+      render: (u) => (
+        <span className="inline-flex items-center gap-2">
+          <span className="w-6 h-6 rounded-full bg-teal-deep text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+            {u.name.slice(0, 2).toUpperCase()}
+          </span>
+          <span>
+            {u.name}
+            {u.humanId ? (
+              <span className="block text-[11px] text-ink-muted font-[family-name:var(--font-mono)]">
+                {u.humanId}
+              </span>
+            ) : null}
+          </span>
+        </span>
+      ),
+    },
+    {
+      key: 'email',
+      header: 'Correo',
+      sortValue: (u) => u.email,
+      className: 'text-ink-muted font-[family-name:var(--font-mono)] text-[12px]',
+      render: (u) => u.email,
+    },
+    {
+      key: 'status',
+      header: 'Estado',
+      sortValue: (u) => u.status ?? '',
+      render: (u) => <StatusSelect userId={u.id} status={u.status} />,
+    },
+    {
+      key: 'level',
+      header: 'Nivel',
+      sortValue: (u) => u.level ?? '',
+      render: (u) => u.level ?? '—',
+    },
+    {
+      key: 'specialties',
+      header: 'Especialidades',
+      render: (u) => (u.specialties.length > 0 ? u.specialties.join(', ') : '—'),
+    },
+    {
+      key: 'availability',
+      header: 'Disp.',
+      sortValue: (u) => u.availability ?? '',
+      render: (u) => u.availability ?? '—',
+    },
+    {
+      key: 'asignados',
+      header: 'Asignados',
+      numeric: true,
+      sortValue: (u) => u.asignados,
+      className: 'font-[family-name:var(--font-mono)]',
+      render: (u) => u.asignados,
+    },
+    {
+      key: 'postulaciones',
+      header: 'Postulaciones',
+      numeric: true,
+      sortValue: (u) => u.postulaciones,
+      className: 'font-[family-name:var(--font-mono)]',
+      render: (u) => u.postulaciones,
+    },
+  ];
 
   return (
     <div className="flex flex-col gap-4">
@@ -50,67 +121,18 @@ export default function ConsultoresPage() {
           <CardTitle>Ecosistema de consultores habilitados</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading && <SkeletonTable rows={4} cols={6} />}
-          {error && <p role="alert" className="text-sm text-danger">{error.message}</p>}
-          {data && data.length === 0 && (
-            <p className="text-sm text-ink-muted">Aún no hay consultores.</p>
-          )}
-          {data && data.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-ink-muted border-b border-border">
-                    <th className="py-2 pr-3 font-medium">Consultor</th>
-                    <th className="py-2 pr-3 font-medium">Correo</th>
-                    <th className="py-2 pr-3 font-medium">Estado</th>
-                    <th className="py-2 pr-3 font-medium">Nivel</th>
-                    <th className="py-2 pr-3 font-medium">Especialidades</th>
-                    <th className="py-2 pr-3 font-medium">Disp.</th>
-                    <th className="py-2 pr-3 font-medium text-right">Asignados</th>
-                    <th className="py-2 pr-3 font-medium text-right">Postulaciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.map((u) => (
-                    <tr key={u.id} className="border-b border-border/60">
-                      <td className="py-2 pr-3">
-                        <span className="inline-flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-teal-deep text-white flex items-center justify-center text-[10px] font-bold">
-                            {u.name.slice(0, 2).toUpperCase()}
-                          </span>
-                          <span>
-                            {u.name}
-                            {u.humanId ? (
-                              <span className="block text-[11px] text-ink-muted font-[family-name:var(--font-mono)]">
-                                {u.humanId}
-                              </span>
-                            ) : null}
-                          </span>
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3 text-ink-muted font-[family-name:var(--font-mono)] text-[12px]">
-                        {u.email}
-                      </td>
-                      <td className="py-2 pr-3">
-                        <StatusSelect userId={u.id} status={u.status} />
-                      </td>
-                      <td className="py-2 pr-3">{u.level ?? '—'}</td>
-                      <td className="py-2 pr-3">
-                        {u.specialties.length > 0 ? u.specialties.join(', ') : '—'}
-                      </td>
-                      <td className="py-2 pr-3">{u.availability ?? '—'}</td>
-                      <td className="py-2 pr-3 text-right font-[family-name:var(--font-mono)]">
-                        {u.asignados}
-                      </td>
-                      <td className="py-2 pr-3 text-right font-[family-name:var(--font-mono)]">
-                        {u.postulaciones}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable
+            rows={data}
+            columns={columns}
+            getRowKey={(u) => u.id}
+            isLoading={isLoading}
+            error={error}
+            searchText={(u) =>
+              `${u.name} ${u.email} ${u.humanId ?? ''} ${u.status ?? ''} ${u.specialties.join(' ')}`
+            }
+            searchPlaceholder="Buscar por nombre, correo o especialidad…"
+            emptyMessage="Aún no hay consultores."
+          />
         </CardContent>
       </Card>
     </div>

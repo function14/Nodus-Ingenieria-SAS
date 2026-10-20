@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
-import { trpc } from '@/lib/trpc/client';
-import { SkeletonTable } from '@/components/ui/skeleton';
+import { trpc, type RouterOutputs } from '@/lib/trpc/client';
+import { DataTable, type Column } from '@/components/ui/data-table';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+
+type Entrada = RouterOutputs['audit']['list'][number];
 
 export default function BitacoraPage() {
   const utils = trpc.useUtils();
@@ -20,6 +22,69 @@ export default function BitacoraPage() {
       setVerifying(false);
     }
   }
+
+  const columns: Column<Entrada>[] = [
+    {
+      key: 'seq',
+      header: '#',
+      numeric: true,
+      sortValue: (r) => r.seq,
+      className: 'font-[family-name:var(--font-mono)] text-ink-muted',
+      render: (r) => r.seq,
+    },
+    {
+      key: 'action',
+      header: 'Acción',
+      sortValue: (r) => r.action,
+      render: (r) => (
+        <>
+          <span className="font-medium">{r.action}</span>
+          {r.fromState && (
+            <span className="text-ink-muted">
+              {' '}· {r.fromState} → {r.toState}
+            </span>
+          )}
+          {!r.fromState && r.toState && <span className="text-ink-muted"> · {r.toState}</span>}
+        </>
+      ),
+    },
+    {
+      key: 'caso',
+      header: 'Caso',
+      sortValue: (r) => r.caseHumanId ?? '',
+      className: 'font-[family-name:var(--font-mono)] text-[12px]',
+      render: (r) => r.caseHumanId ?? '—',
+    },
+    {
+      key: 'actor',
+      header: 'Actor',
+      sortValue: (r) => r.actor,
+      className: 'text-ink-muted',
+      render: (r) => r.actor,
+    },
+    {
+      key: 'fecha',
+      header: 'Fecha',
+      sortValue: (r) => new Date(r.createdAt).getTime(),
+      className: 'text-ink-muted text-xs',
+      render: (r) => new Date(r.createdAt).toLocaleString('es-CO'),
+    },
+    {
+      key: 'hash',
+      header: 'Hash',
+      // Copiable: antes se truncaba sin forma de verlo ni verificarlo fuera.
+      render: (r) => (
+        <button
+          type="button"
+          title={`Copiar ${r.rowHash}`}
+          onClick={() => navigator.clipboard?.writeText(r.rowHash)}
+          className="font-[family-name:var(--font-mono)] text-[10px] text-ink-muted/70 hover:text-ink transition-colors"
+        >
+          {r.rowHash.slice(0, 12)}…
+        </button>
+      ),
+    },
+  ];
 
   return (
     <div className="flex flex-col gap-4">
@@ -47,49 +112,17 @@ export default function BitacoraPage() {
                 : `Cadena rota en el registro #${chain.brokenSeq}.`}
             </div>
           )}
-
-          {isLoading && <SkeletonTable rows={8} cols={6} />}
-          {error && <p role="alert" className="text-sm text-danger">{error.message}</p>}
-          {data && data.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-ink-muted border-b border-border">
-                    <th className="py-2 pr-3 font-medium">#</th>
-                    <th className="py-2 pr-3 font-medium">Acción</th>
-                    <th className="py-2 pr-3 font-medium">Caso</th>
-                    <th className="py-2 pr-3 font-medium">Actor</th>
-                    <th className="py-2 pr-3 font-medium">Fecha</th>
-                    <th className="py-2 pr-3 font-medium">Hash</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.map((r) => (
-                    <tr key={r.seq} className="border-b border-border/60">
-                      <td className="py-2 pr-3 font-[family-name:var(--font-mono)] text-ink-muted">{r.seq}</td>
-                      <td className="py-2 pr-3">
-                        <span className="font-medium">{r.action}</span>
-                        {r.fromState && (
-                          <span className="text-ink-muted"> · {r.fromState} → {r.toState}</span>
-                        )}
-                        {!r.fromState && r.toState && <span className="text-ink-muted"> · {r.toState}</span>}
-                      </td>
-                      <td className="py-2 pr-3 font-[family-name:var(--font-mono)] text-[12px]">
-                        {r.caseHumanId ?? '—'}
-                      </td>
-                      <td className="py-2 pr-3 text-ink-muted">{r.actor}</td>
-                      <td className="py-2 pr-3 text-ink-muted text-xs">
-                        {new Date(r.createdAt).toLocaleString('es-CO')}
-                      </td>
-                      <td className="py-2 pr-3 font-[family-name:var(--font-mono)] text-[10px] text-ink-muted/70">
-                        {r.rowHash.slice(0, 12)}…
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable
+            rows={data}
+            columns={columns}
+            getRowKey={(r) => String(r.seq)}
+            isLoading={isLoading}
+            error={error}
+            searchText={(r) => `${r.seq} ${r.action} ${r.caseHumanId ?? ''} ${r.actor} ${r.toState ?? ''}`}
+            searchPlaceholder="Buscar por acción, caso o actor…"
+            emptyMessage="La bitácora está vacía."
+            pageSize={20}
+          />
         </CardContent>
       </Card>
     </div>
