@@ -4,6 +4,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { LogOut } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
+import { useToast } from '@/components/ui/toast';
 import { roles } from '@/lib/constants';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
@@ -13,8 +14,11 @@ const NIVELES = ['junior', 'semi-senior', 'senior'];
 function PerfilConsultor() {
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.consultants.my.useQuery();
+  const toast = useToast();
   const save = trpc.consultants.updateMyProfile.useMutation({
+    onError: (e) => toast.error(e.message),
     onSuccess: async () => {
+      toast.exito('Ficha actualizada.');
       await utils.consultants.my.invalidate();
       await utils.postulations.bolsa.invalidate();
     },
@@ -114,7 +118,6 @@ function PerfilConsultor() {
         >
           Guardar ficha
         </button>
-        {save.error && <p role="alert" className="text-sm text-danger">{save.error.message}</p>}
       </CardContent>
     </Card>
   );

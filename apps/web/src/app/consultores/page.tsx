@@ -1,6 +1,7 @@
 'use client';
 
 import { trpc } from '@/lib/trpc/client';
+import { useToast } from '@/components/ui/toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { InvitarConsultor } from './_invitar';
 
@@ -8,8 +9,13 @@ const STATUS_ORDER = ['registrado', 'en_validacion', 'habilitado', 'condicionado
 
 function StatusSelect({ userId, status }: { userId: string; status: string | null }) {
   const utils = trpc.useUtils();
+  const toast = useToast();
   const set = trpc.consultants.setStatus.useMutation({
-    onSuccess: () => utils.consultants.list.invalidate(),
+    onError: (e) => toast.error(e.message),
+    onSuccess: () => {
+      toast.exito('Estado del consultor actualizado.');
+      return utils.consultants.list.invalidate();
+    },
   });
 
   return (

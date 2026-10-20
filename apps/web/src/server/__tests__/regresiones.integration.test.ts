@@ -196,6 +196,9 @@ describe('R2 - la clasificacion del consultor la fija Advisory (TC3)', () => {
 /* ------------------------------------------------------------------ */
 describe('R3 - una version documental solo cuenta si el servidor la verifica', () => {
   const storage = createObjectStorage(storageConfigFromEnv());
+  // Sufijo por corrida: sin el, el documento se reutiliza entre ejecuciones y
+  // las versiones se acumulan. El mismo defecto que ya corregimos en F2.
+  const sufijo = Date.now();
 
   async function casoDelConsultor() {
     return prisma.case.findFirstOrThrow({ where: { assignedUserId: consultor.id } });
@@ -207,7 +210,7 @@ describe('R3 - una version documental solo cuenta si el servidor la verifica', (
     const res = await callerFor(consultor).documents.upload({
       caseId: kase.id,
       kind: 'anexo',
-      title: 'R3 fantasma',
+      title: `R3 fantasma ${sufijo}`,
       mime: 'text/plain',
       sizeBytes: Buffer.byteLength(body),
       checksum: createHash('sha256').update(body).digest('hex'),
@@ -215,7 +218,7 @@ describe('R3 - una version documental solo cuenta si el servidor la verifica', (
     });
 
     const docs = await callerFor(consultor).documents.list({ caseId: kase.id });
-    const fantasma = docs.find((d) => d.title === 'R3 fantasma');
+    const fantasma = docs.find((d) => d.title === `R3 fantasma ${sufijo}`);
     expect(fantasma?.versions ?? []).toHaveLength(0);
 
     await expect(
@@ -233,7 +236,7 @@ describe('R3 - una version documental solo cuenta si el servidor la verifica', (
     const res = await callerFor(consultor).documents.upload({
       caseId: kase.id,
       kind: 'anexo',
-      title: 'R3 suplantado',
+      title: `R3 suplantado ${sufijo}`,
       mime: 'text/plain',
       sizeBytes: Buffer.byteLength(declarado),
       checksum: createHash('sha256').update(declarado).digest('hex'),
@@ -263,7 +266,7 @@ describe('R3 - una version documental solo cuenta si el servidor la verifica', (
     const res = await callerFor(consultor).documents.upload({
       caseId: kase.id,
       kind: 'entregable',
-      title: 'R3 integro',
+      title: `R3 integro ${sufijo}`,
       mime: 'text/plain',
       sizeBytes: body.length,
       checksum: createHash('sha256').update(body).digest('hex'),
@@ -282,7 +285,7 @@ describe('R3 - una version documental solo cuenta si el servidor la verifica', (
     expect(ok.confirmed).toBe(true);
 
     const docs = await callerFor(consultor).documents.list({ caseId: kase.id });
-    expect(docs.find((d) => d.title === 'R3 integro')?.versions).toHaveLength(1);
+    expect(docs.find((d) => d.title === `R3 integro ${sufijo}`)?.versions).toHaveLength(1);
 
     const url = await callerFor(consultor).documents.downloadUrl({
       caseId: kase.id,

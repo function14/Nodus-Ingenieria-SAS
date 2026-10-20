@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Sparkles, Clock3, AlertTriangle } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
+import { useToast } from '@/components/ui/toast';
 import { StatBlock } from '@/components/ui/stat-block';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { SLAHeatmap } from '@/components/ui/sla-heatmap';
@@ -26,8 +27,11 @@ export default function DashboardPage() {
 
   const { data, isLoading } = trpc.dashboard.pmo.useQuery(undefined, { enabled: isPmo });
   const utils = trpc.useUtils();
+  const toast = useToast();
   const sweep = trpc.sla.sweep.useMutation({
-    onSuccess: async () => {
+    onError: (e) => toast.error(e.message),
+    onSuccess: async (r) => {
+      toast.info(`Barrido de SLA: ${r.warned} en riesgo, ${r.breached} vencidos.`);
       await Promise.all([utils.dashboard.pmo.invalidate(), utils.notifications.recent.invalidate()]);
     },
   });

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, ShieldCheck, ShieldAlert, Download, Upload, FileText } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
+import { useToast } from '@/components/ui/toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 type DocKind = 'anexo' | 'entregable' | 'evidencia';
@@ -13,11 +14,11 @@ export default function CaseDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const utils = trpc.useUtils();
+  const toast = useToast();
 
   const caseQ = trpc.cases.byId.useQuery({ id });
   const transitionsQ = trpc.cases.availableTransitions.useQuery({ caseId: id });
 
-  const [actionError, setActionError] = useState<string | null>(null);
   const [chain, setChain] = useState<{ valid: boolean; count: number; brokenSeq: number | null } | null>(null);
   const [verifying, setVerifying] = useState(false);
 
@@ -25,15 +26,13 @@ export default function CaseDetailPage() {
   const [docKind, setDocKind] = useState<DocKind>('entregable');
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [docError, setDocError] = useState<string | null>(null);
-  const [docOk, setDocOk] = useState<string | null>(null);
 
   const docsQ = trpc.documents.list.useQuery({ caseId: id }, { enabled: !!caseQ.data && !caseQ.data.masked });
 
   const uploadDoc = trpc.documents.upload.useMutation();
   const confirmDoc = trpc.documents.confirm.useMutation();
   const downloadDoc = trpc.documents.downloadUrl.useMutation({
-    onError: (e) => setDocError(e.message),
+    onError: (e) => toast.error(e.message),
   });
 
   async function sha256Hex(buffer: ArrayBuffer): Promise<string> {
@@ -44,8 +43,6 @@ export default function CaseDetailPage() {
   async function handleUpload() {
     if (!file) return;
     setUploading(true);
-    setDocError(null);
-    setDocOk(null);
     try {
       const checksum = await sha256Hex(await file.arrayBuffer());
       const res = await uploadDoc.mutateAsync({
@@ -67,7 +64,7 @@ export default function CaseDetailPage() {
       // El servidor lee el archivo del repositorio y recalcula su sha256: hasta
       // que no coincide con el declarado, la versión no cuenta ni se descarga.
       await confirmDoc.mutateAsync({ caseId: id, documentId: res.documentId, version: res.version });
-      setDocOk(`Subido y verificado (v${res.version}).`);
+      toast.exito(`Documento subido y verificado (v${res.version}).`);
       await Promise.all([
         utils.documents.list.invalidate({ caseId: id }),
         utils.cases.byId.invalidate({ id }),
@@ -76,14 +73,13 @@ export default function CaseDetailPage() {
       setFile(null);
       setDocTitle('');
     } catch (e) {
-      setDocError(e instanceof Error ? e.message : 'No se pudo subir el archivo.');
+      toast.error(e instanceof Error ? e.message : 'No se pudo subir el archivo.');
     } finally {
       setUploading(false);
     }
   }
 
   function handleDownload(documentId: string, version?: number) {
-    setDocError(null);
     downloadDoc.mutate(
       { caseId: id, documentId, version },
       {
@@ -93,8 +89,8 @@ export default function CaseDetailPage() {
   }
 
   const transition = trpc.cases.transition.useMutation({
-    onMutate: () => setActionError(null),
-    onSuccess: async () => {
+    onSuccess: async (res) => {
+      toast.exito(`Caso en ${res?.to ?? 'el nuevo estado'}.`);
       await Promise.all([
         utils.cases.byId.invalidate({ id }),
         utils.cases.availableTransitions.invalidate({ caseId: id }),
@@ -103,7 +99,7 @@ export default function CaseDetailPage() {
       ]);
       setChain(null);
     },
-    onError: (e) => setActionError(e.message),
+    onError: (e) => toast.error(e.message),
   });
 
   async function verifyIntegrity() {
@@ -167,9 +163,6 @@ export default function CaseDetailPage() {
               </button>
             ))}
           </div>
-          {actionError && (
-            <p role="alert" className="text-sm text-danger">{actionError}</p>
-          )}
         </CardContent>
       </Card>
 
@@ -227,8 +220,6 @@ export default function CaseDetailPage() {
               </button>
             </div>
 
-            {docError && <p role="alert" className="text-sm text-danger">{docError}</p>}
-            {docOk && <p role="status" className="text-sm text-success-deep">{docOk}</p>}
 
             <div>
               <p className="text-xs text-ink-muted uppercase tracking-wide mb-2">

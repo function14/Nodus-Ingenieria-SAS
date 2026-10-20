@@ -2,13 +2,17 @@
 
 import { useSession } from 'next-auth/react';
 import { trpc } from '@/lib/trpc/client';
+import { useToast } from '@/components/ui/toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 function Postulantes({ caseId }: { caseId: string }) {
   const utils = trpc.useUtils();
   const q = trpc.postulations.listForCase.useQuery({ caseId });
+  const toast = useToast();
   const assign = trpc.cases.assign.useMutation({
+    onError: (e) => toast.error(e.message),
     onSuccess: async () => {
+      toast.exito('Consultor asignado. El caso avanza a ASIGNADO.');
       await Promise.all([
         utils.postulations.bolsa.invalidate(),
         utils.postulations.listForCase.invalidate({ caseId }),
@@ -42,12 +46,12 @@ function Postulantes({ caseId }: { caseId: string }) {
           </button>
         </li>
       ))}
-      {assign.error && <p role="alert" className="text-sm text-danger">{assign.error.message}</p>}
     </ul>
   );
 }
 
 export default function BolsaPage() {
+  const toast = useToast();
   const { data: session } = useSession();
   const role = session?.user?.role;
   const utils = trpc.useUtils();
@@ -55,7 +59,11 @@ export default function BolsaPage() {
   const miPerfilQ = trpc.consultants.my.useQuery(undefined, { enabled: role === 'consultor' });
 
   const apply = trpc.postulations.postular.useMutation({
-    onSuccess: () => utils.postulations.bolsa.invalidate(),
+    onError: (e) => toast.error(e.message),
+    onSuccess: () => {
+      toast.exito('Postulación registrada.');
+      return utils.postulations.bolsa.invalidate();
+    },
   });
 
   return (
@@ -124,7 +132,6 @@ export default function BolsaPage() {
         ))}
       </div>
 
-      {apply.error && <p role="alert" className="text-sm text-danger">{apply.error.message}</p>}
     </div>
   );
 }
