@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { trpc } from '@/lib/trpc/client';
 import { SkeletonCards } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
+import { Chip } from '@/components/ui/chip';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 function Postulantes({ caseId }: { caseId: string }) {
@@ -103,7 +104,12 @@ export default function BolsaPage() {
           <Card key={c.id}>
             <CardHeader>
               <CardTitle className="flex items-center justify-between gap-2">
-                <span>{c.company}</span>
+                {/* El enmascaramiento se marca igual que en /casos: si cada
+                    vista lo pinta distinto, el usuario duda de cuál dice la
+                    verdad sobre lo que puede ver. */}
+                <span className={c.masked ? 'italic text-ink-muted font-normal' : ''}>
+                  {c.masked ? `🔒 ${c.company}` : c.company}
+                </span>
                 <span className="font-[family-name:var(--font-mono)] text-[11px] text-ink-muted">
                   {c.humanId}
                 </span>
@@ -111,10 +117,22 @@ export default function BolsaPage() {
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               <p className="text-sm text-ink-muted">{c.title}</p>
-              <p className="text-xs text-ink-muted">
-                Area: <strong>{c.area}</strong> · Complejidad: <strong>{c.complejidad}</strong>
-              </p>
-              <p className="text-xs text-ink-muted">{c.postulantes} postulante(s)</p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {c.area && (
+                  <Chip label={c.area} colorClass="bg-teal/10 text-teal-deep" title="Área del caso" />
+                )}
+                {c.complejidad && (
+                  <Chip
+                    label={`Complejidad ${c.complejidad}`}
+                    colorClass="bg-primary/10 text-primary-deep"
+                    title="Determina qué nivel de consultor es elegible"
+                  />
+                )}
+                <Chip
+                  label={c.postulantes === 1 ? '1 postulante' : `${c.postulantes} postulantes`}
+                  title="Consultores que ya se postularon"
+                />
+              </div>
 
               {role === 'consultor' && (
                 <button

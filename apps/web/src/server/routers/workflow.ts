@@ -22,6 +22,10 @@ export const workflowRouter = router({
         from: t.fromState.code,
         to: t.toState.code,
         allowedRoles: t.allowedRoles,
+        // Las guardas declarativas son parte de la definicion del flujo y
+        // hasta ahora no se veian en ninguna pantalla: el rol decia quien
+        // PUEDE, pero no bajo que condicion.
+        guards: (Array.isArray(t.guards) ? t.guards : []) as { type?: string; role?: string }[],
       })),
     };
   }),

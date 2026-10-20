@@ -7,6 +7,7 @@ import { ArrowLeft, ShieldCheck, ShieldAlert, Download, Upload, FileText } from 
 import { trpc } from '@/lib/trpc/client';
 import { useToast } from '@/components/ui/toast';
 import { SkeletonLines, SkeletonTable } from '@/components/ui/skeleton';
+import { LineaTiempo } from './_linea-tiempo';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 type DocKind = 'anexo' | 'entregable' | 'evidencia';
@@ -331,36 +332,7 @@ export default function CaseDetailPage() {
             </div>
           )}
 
-          <ol className="flex flex-col gap-3">
-            {c.auditLogs.map((log) => (
-              <li key={log.id} className="flex gap-3">
-                <div className="flex flex-col items-center pt-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-primary shrink-0" aria-hidden="true" />
-                  <span className="flex-1 w-px bg-border mt-1" />
-                </div>
-                <div className="pb-1">
-                  <div className="text-sm font-medium">
-                    {log.action}
-                    {log.fromState && (
-                      <span className="text-ink-muted font-normal">
-                        {' '}· {log.fromState} → {log.toState}
-                      </span>
-                    )}
-                    {!log.fromState && log.toState && (
-                      <span className="text-ink-muted font-normal"> · {log.toState}</span>
-                    )}
-                  </div>
-                  <div className="text-xs text-ink-muted">
-                    {log.actor?.name ?? 'system'} ·{' '}
-                    {new Date(log.createdAt).toLocaleString('es-CO')}
-                  </div>
-                  <div className="font-[family-name:var(--font-mono)] text-[10px] text-ink-muted/70">
-                    #{log.seq} · {log.rowHash.slice(0, 16)}…
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
+          <LineaTiempo entradas={c.auditLogs} />
         </CardContent>
       </Card>
     </div>

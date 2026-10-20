@@ -3,6 +3,12 @@ interface KanbanCard {
   humanId: string;
   company: string;
   assignee: string | null;
+  /**
+   * Caso con la identidad del cliente reservada. La tarjeta debe comunicarlo
+   * igual que la tabla: si una vista lo marca y la otra no, el usuario acaba
+   * dudando de cuál dice la verdad.
+   */
+  masked?: boolean;
 }
 
 interface KanbanColumn {
@@ -12,7 +18,14 @@ interface KanbanColumn {
   cards: KanbanCard[];
 }
 
-export function KanbanBoard({ columns }: { columns: KanbanColumn[] }) {
+export function KanbanBoard({
+  columns,
+  onCardClick,
+}: {
+  columns: KanbanColumn[];
+  /** Si se pasa, la tarjeta se vuelve pulsable y operable con teclado. */
+  onCardClick?: (card: KanbanCard) => void;
+}) {
   return (
     <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4">
       {columns.map((col) => (
@@ -20,7 +33,7 @@ export function KanbanBoard({ columns }: { columns: KanbanColumn[] }) {
           <div className="rounded-lg px-3 py-1.5 text-xs font-bold text-ink-muted flex items-center justify-between border border-border">
             <span className="flex items-center gap-1.5">
               <span
-                className="w-2 h-2 rounded-full"
+                className="w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: col.color ?? '#64748B' }}
                 aria-hidden="true"
               />
@@ -34,12 +47,31 @@ export function KanbanBoard({ columns }: { columns: KanbanColumn[] }) {
             {col.cards.map((card) => (
               <div
                 key={card.id}
-                className="bg-surface border border-border rounded-lg p-3 shadow-offset-sm text-sm"
+                onClick={onCardClick ? () => onCardClick(card) : undefined}
+                tabIndex={onCardClick ? 0 : undefined}
+                role={onCardClick ? 'button' : undefined}
+                onKeyDown={
+                  onCardClick
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onCardClick(card);
+                        }
+                      }
+                    : undefined
+                }
+                className={`bg-surface border border-border rounded-lg p-3 shadow-offset-sm text-sm ${
+                  onCardClick
+                    ? 'cursor-pointer hover:border-border-strong transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink'
+                    : ''
+                }`}
               >
                 <div className="font-[family-name:var(--font-mono)] text-[11px] text-ink-muted">
                   {card.humanId}
                 </div>
-                <div className="font-medium mt-1">{card.company}</div>
+                <div className={`mt-1 ${card.masked ? 'italic text-ink-muted' : 'font-medium'}`}>
+                  {card.masked ? `🔒 ${card.company}` : card.company}
+                </div>
                 {card.assignee && <div className="mt-1 text-xs text-ink-muted">{card.assignee}</div>}
               </div>
             ))}
