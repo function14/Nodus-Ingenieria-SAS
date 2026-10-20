@@ -99,32 +99,40 @@ await prisma.notification.deleteMany();
     }
   }
 
+  // Color de estado: NO son hex sueltos. Cada fase del flujo tiene un tono, y
+  // dentro de la fase el color se oscurece a medida que el caso avanza, de modo
+  // que el color INFORMA del progreso en vez de decorar:
+  //   Admision      pizarra   ·  Mercado   teal
+  //   Propuesta     indigo    ·  Contratacion  violeta
+  //   Ejecucion     ambar     ·  Terminales    verde (cerrado) / gris (sin contratacion)
+  // Todos superan 3:1 sobre crema para que el punto sea perceptible por si
+  // mismo; aun asi la interfaz NUNCA usa color solo: siempre va con el nombre.
   const stateData = [
     // --- ciclo de vida basico (puntos 1-2) ---
-    { code: 'CREADO', name: 'Creado', order: 1, isInitial: true, isTerminal: false, color: '#F97316' },
-    { code: 'EN_REVISION', name: 'En revisión', order: 2, isInitial: false, isTerminal: false, color: '#7C3AED' },
-    { code: 'CLASIFICADO', name: 'Clasificado', order: 3, isInitial: false, isTerminal: false, color: '#0D9488' },
+    { code: 'CREADO', name: 'Creado', order: 1, isInitial: true, isTerminal: false, color: '#7A8699' },
+    { code: 'EN_REVISION', name: 'En revisión', order: 2, isInitial: false, isTerminal: false, color: '#5B6B82' },
+    { code: 'CLASIFICADO', name: 'Clasificado', order: 3, isInitial: false, isTerminal: false, color: '#3F4F63' },
     // --- punto 3: bolsa interna ---
-    { code: 'EN_POSTULACION', name: 'En postulación', order: 4, isInitial: false, isTerminal: false, color: '#0284C7' },
-    { code: 'ASIGNADO', name: 'Asignado', order: 5, isInitial: false, isTerminal: false, color: '#64748B' },
+    { code: 'EN_POSTULACION', name: 'En postulación', order: 4, isInitial: false, isTerminal: false, color: '#109184' },
+    { code: 'ASIGNADO', name: 'Asignado', order: 5, isInitial: false, isTerminal: false, color: '#0B6560' },
     // --- punto 4: diseno ---
-    { code: 'PROPUESTA_EN_DISENO', name: 'Propuesta en diseño', order: 6, isInitial: false, isTerminal: false, color: '#6366F1' },
+    { code: 'PROPUESTA_EN_DISENO', name: 'Propuesta en diseño', order: 6, isInitial: false, isTerminal: false, color: '#5B5FD4' },
     // --- punto 5: QA ---
-    { code: 'PROPUESTA_LISTA_QA', name: 'Propuesta lista para QA', order: 7, isInitial: false, isTerminal: false, color: '#8B5CF6' },
+    { code: 'PROPUESTA_LISTA_QA', name: 'Propuesta lista para QA', order: 7, isInitial: false, isTerminal: false, color: '#4842C0' },
     // --- punto 6: envio y decision ---
-    { code: 'PROPUESTA_ENVIADA', name: 'Propuesta enviada', order: 8, isInitial: false, isTerminal: false, color: '#0891B2' },
-    { code: 'EN_DECISION_CLIENTE', name: 'En decisión del cliente', order: 9, isInitial: false, isTerminal: false, color: '#D97706' },
-    { code: 'AJUSTES_DE_PROPUESTA', name: 'Ajustes de propuesta', order: 10, isInitial: false, isTerminal: false, color: '#B45309' },
-    { code: 'PROPUESTA_ACEPTADA', name: 'Propuesta aceptada', order: 11, isInitial: false, isTerminal: false, color: '#16A34A' },
+    { code: 'PROPUESTA_ENVIADA', name: 'Propuesta enviada', order: 8, isInitial: false, isTerminal: false, color: '#3B32A6' },
+    { code: 'EN_DECISION_CLIENTE', name: 'En decisión del cliente', order: 9, isInitial: false, isTerminal: false, color: '#2E2880' },
+    { code: 'AJUSTES_DE_PROPUESTA', name: 'Ajustes de propuesta', order: 10, isInitial: false, isTerminal: false, color: '#7B7FE0' },
+    { code: 'PROPUESTA_ACEPTADA', name: 'Propuesta aceptada', order: 11, isInitial: false, isTerminal: false, color: '#8457E6' },
     // --- punto 7: contratacion ---
-    { code: 'PENDIENTE_CONTRATACION', name: 'Pendiente de contratación', order: 12, isInitial: false, isTerminal: false, color: '#4D7C0F' },
-    { code: 'AUTORIZADO_EJECUCION', name: 'Autorizado para ejecución', order: 13, isInitial: false, isTerminal: false, color: '#A16207' },
+    { code: 'PENDIENTE_CONTRATACION', name: 'Pendiente de contratación', order: 12, isInitial: false, isTerminal: false, color: '#6E3BD1' },
+    { code: 'AUTORIZADO_EJECUCION', name: 'Autorizado para ejecución', order: 13, isInitial: false, isTerminal: false, color: '#5A2BAF' },
     // --- punto 8: ejecucion ---
-    { code: 'EN_EJECUCION', name: 'En ejecución', order: 14, isInitial: false, isTerminal: false, color: '#CA8A04' },
+    { code: 'EN_EJECUCION', name: 'En ejecución', order: 14, isInitial: false, isTerminal: false, color: '#B0780A' },
     // --- punto 9: cierre ---
-    { code: 'LISTO_PARA_CIERRE', name: 'Listo para cierre', order: 15, isInitial: false, isTerminal: false, color: '#65A30D' },
-    { code: 'CERRADO_SIN_CONTRATACION', name: 'Cerrado sin contratación', order: 16, isInitial: false, isTerminal: true, color: '#78716C' },
-    { code: 'CERRADO', name: 'Cerrado', order: 17, isInitial: false, isTerminal: true, color: '#16A34A' },
+    { code: 'LISTO_PARA_CIERRE', name: 'Listo para cierre', order: 15, isInitial: false, isTerminal: false, color: '#8A5A06' },
+    { code: 'CERRADO_SIN_CONTRATACION', name: 'Cerrado sin contratación', order: 16, isInitial: false, isTerminal: true, color: '#6B655F' },
+    { code: 'CERRADO', name: 'Cerrado', order: 17, isInitial: false, isTerminal: true, color: '#15803D' },
   ];
   const states: Record<string, string> = {};
   for (const s of stateData) {
