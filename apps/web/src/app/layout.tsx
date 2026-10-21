@@ -25,7 +25,16 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'NODUS',
+  /**
+   * Cada página pone su nombre; la plantilla le añade el producto. Antes TODAS
+   * las pestañas se llamaban «NODUS», así que con cuatro abiertas —un caso, la
+   * bitácora, la bolsa— no se distinguía ninguna. En una herramienta de trabajo
+   * la pestaña es parte de la navegación.
+   *
+   * `/` se queda con el título por defecto a propósito: sirve un panel distinto
+   * según el rol y no hay un nombre único que sea cierto para los tres.
+   */
+  title: { default: 'NODUS', template: '%s · NODUS' },
   description: 'Plataforma de orquestación empresarial — 911MiPyme',
   manifest: '/manifest.webmanifest',
 };

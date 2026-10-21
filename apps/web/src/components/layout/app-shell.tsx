@@ -84,7 +84,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <span className="font-[family-name:var(--font-display)] font-bold text-lg">NODUS</span>
         </div>
-        <nav aria-label="Navegación principal" className="flex flex-col gap-1">
+        {/* `min-h-0 overflow-y-auto`: con nueve enlaces y tres encabezados, en
+            una pantalla de portátil baja el menú llegaba a empujar el bloque de
+            cuenta fuera de la vista, y con él la única salida de la aplicación.
+            Que desborde el menú y no la barra entera. */}
+        <nav
+          aria-label="Navegación principal"
+          className="flex flex-col gap-1 min-h-0 overflow-y-auto"
+        >
           {groups.map((group, index) => (
             <div
               key={group.label}
@@ -127,6 +134,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="mt-auto pt-4 border-t border-border flex flex-col gap-1">
             <Link
               href="/perfil"
+              // El resto del nav marca la página actual con `aria-current`;
+              // este enlace solo la marcaba con color. Quien navega por lector
+              // de pantalla no recibe el color.
+              aria-current={isActive(pathname, '/perfil') ? 'page' : undefined}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                 isActive(pathname, '/perfil') ? 'bg-primary/10' : 'hover:bg-cream-dark'
               }`}

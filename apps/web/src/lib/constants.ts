@@ -20,7 +20,9 @@ export interface NavItem {
 }
 
 export const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/', icon: 'LayoutDashboard' },
+  // «Panel», igual que en el sidebar. Llamar «Dashboard» en móvil y «Panel» en
+  // escritorio al MISMO destino obliga a deducir que son lo mismo.
+  { label: 'Panel', href: '/', icon: 'LayoutDashboard' },
   { label: 'Casos', href: '/casos', icon: 'FolderOpen' },
   { label: 'Bolsa', href: '/bolsa', icon: 'Briefcase' },
   { label: 'Alertas', href: '/alertas', icon: 'Bell' },
