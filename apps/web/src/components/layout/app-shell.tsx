@@ -18,7 +18,6 @@ import {
 import { useSession, signOut } from 'next-auth/react';
 import { allowedRoutes } from '@nodus/rbac';
 import { sidebarItems, navItems, roles } from '@/lib/constants';
-import { RoleSwitcher } from '@/components/ui/role-switcher';
 
 const iconMap: Record<string, React.ElementType> = {
   LayoutDashboard,
@@ -67,8 +66,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <span className="font-[family-name:var(--font-display)] font-bold text-lg">NODUS</span>
         </div>
-        <RoleSwitcher />
-        <nav aria-label="Navegación principal" className="flex flex-col gap-1 mt-4">
+        <nav aria-label="Navegación principal" className="flex flex-col gap-1">
           {sidebar.map((item) => {
             const Icon = iconMap[item.icon] ?? LayoutDashboard;
             const active = isActive(pathname, item.href);
@@ -130,7 +128,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <span className="font-[family-name:var(--font-display)] font-bold text-lg">NODUS</span>
           </div>
-          <RoleSwitcher />
         </header>
 
         {/* Page content */}
