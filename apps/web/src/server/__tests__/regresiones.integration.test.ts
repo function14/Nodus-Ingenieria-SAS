@@ -485,3 +485,34 @@ describe('R6 - alta de consultor y su ciclo hasta ver casos', () => {
     for (const b of bolsa) expect(b.masked).toBe(true);
   });
 });
+
+/* ------------------------------------------------------------------ */
+describe('R7 - marcar leido solo toca lo dirigido a quien llama', () => {
+  it('no marca avisos de otros usuarios ni los de difusion', async () => {
+    const otro = await prisma.user.findFirstOrThrow({
+      where: { tenantId, id: { not: advisory.id }, role: { code: 'consultor' } },
+    });
+
+    // Aviso dirigido a otro usuario y aviso de difusion: ninguno debe cambiar.
+    const ajeno = await prisma.notification.create({
+      data: { tenantId, userId: otro.id, type: 'R7', message: 'ajeno', read: false },
+    });
+    const difusion = await prisma.notification.create({
+      data: { tenantId, userId: null, recipientRole: 'advisory', type: 'R7', message: 'difusion', read: false },
+    });
+    const propio = await prisma.notification.create({
+      data: { tenantId, userId: advisory.id, type: 'R7', message: 'propio', read: false },
+    });
+
+    const r = await callerFor(advisory).notifications.markAllRead();
+    expect(r.marcadas).toBeGreaterThanOrEqual(1);
+
+    expect((await prisma.notification.findUniqueOrThrow({ where: { id: propio.id } })).read).toBe(true);
+    expect((await prisma.notification.findUniqueOrThrow({ where: { id: ajeno.id } })).read).toBe(false);
+    // La difusion NO se marca: es una sola fila que leen varios usuarios, y
+    // marcarla la marcaria para todos.
+    expect((await prisma.notification.findUniqueOrThrow({ where: { id: difusion.id } })).read).toBe(false);
+
+    await prisma.notification.deleteMany({ where: { type: 'R7' } });
+  });
+});

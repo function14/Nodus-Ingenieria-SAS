@@ -131,8 +131,28 @@ export const notificationsRouter = router({
         recipientEmail: n.recipientEmail,
         subject: view.subject,
         sentAt: n.sentAt,
+        // Dirigida a mi (no difusion): es lo unico que puede marcarse leido.
+        propia: n.userId === ctx.user.id,
+        leida: n.read,
       };
     });
+  }),
+
+  /**
+   * Marca como leidas las notificaciones DIRIGIDAS a quien llama.
+   *
+   * Solo las dirigidas, y no es una limitacion sino el modelo: `read` es un
+   * booleano en la fila, y una comunicacion de difusion (userId null) la leen
+   * varios usuarios. Marcarla alli la marcaria para todos. Un estado de lectura
+   * por persona exigiria una tabla aparte; mientras no exista, el contador
+   * cuenta lo que va dirigido a ti, que es lo unico que puede ser tuyo.
+   */
+  markAllRead: resourceProcedure('notifications').mutation(async ({ ctx }) => {
+    const { count } = await ctx.prisma.notification.updateMany({
+      where: { tenantId: ctx.user.tenantId, userId: ctx.user.id, read: false },
+      data: { read: true },
+    });
+    return { marcadas: count };
   }),
 
   /**

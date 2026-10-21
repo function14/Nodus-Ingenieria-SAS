@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { canPerform } from '@nodus/rbac';
 import { trpc, type RouterOutputs } from '@/lib/trpc/client';
@@ -13,10 +14,13 @@ import { VistaToggle, useVistaCasos } from './_vista-toggle';
 
 type Caso = RouterOutputs['cases']['list'][number];
 
-export default function CasosPage() {
+function CasosContenido() {
   const { data, isLoading, error } = trpc.cases.list.useQuery();
   const { data: session } = useSession();
   const router = useRouter();
+  const params = useSearchParams();
+  // Permite aterrizar aqui ya filtrado desde el directorio de empresas.
+  const empresaFiltro = params.get('empresa') ?? '';
   const [vista, setVista] = useVistaCasos();
   // El boton refleja el permiso real de la capa (no una regla propia de la UI).
   const canCreate = session?.user ? canPerform(session.user, 'case.create') : false;
@@ -138,10 +142,21 @@ export default function CasosPage() {
             searchPlaceholder="Buscar por ID, empresa o estado…"
             emptyMessage="Aún no hay casos registrados."
             onRowClick={(c) => router.push(`/casos/${c.id}`)}
+            initialSearch={empresaFiltro}
           />
           )}
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function CasosPage() {
+  // Suspense obligatorio: useSearchParams() deja la pagina fuera del
+  // prerenderizado estatico y Next rechaza el build sin este limite.
+  return (
+    <Suspense fallback={<SkeletonTable rows={6} cols={4} />}>
+      <CasosContenido />
+    </Suspense>
   );
 }

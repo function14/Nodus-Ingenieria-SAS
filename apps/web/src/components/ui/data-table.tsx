@@ -42,6 +42,12 @@ interface DataTableProps<T> {
   /** Hace la fila entera pulsable. Mantiene el teclado operativo. */
   onRowClick?: (row: T) => void;
   pageSize?: number;
+  /**
+   * Busqueda con la que arranca la tabla. Permite llegar filtrado desde otra
+   * vista (p. ej. una empresa -> sus casos) sin que cada una se invente su
+   * propio mecanismo de filtrado.
+   */
+  initialSearch?: string;
 }
 
 export function DataTable<T>({
@@ -55,8 +61,9 @@ export function DataTable<T>({
   error,
   onRowClick,
   pageSize = 15,
+  initialSearch = '',
 }: DataTableProps<T>) {
-  const [consulta, setConsulta] = useState('');
+  const [consulta, setConsulta] = useState(initialSearch);
   const [orden, setOrden] = useState<{ key: string; asc: boolean } | null>(null);
   const [pagina, setPagina] = useState(0);
 
