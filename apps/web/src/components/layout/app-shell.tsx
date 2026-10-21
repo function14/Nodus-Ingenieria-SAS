@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { allowedRoutes } from '@nodus/rbac';
-import { sidebarItems, navItems, roles } from '@/lib/constants';
+import { sidebarGroups, navItems, roles } from '@/lib/constants';
 
 const iconMap: Record<string, React.ElementType> = {
   LayoutDashboard,
@@ -53,7 +53,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // El nav es un REFLEJO de la capa de permisos (@nodus/rbac), no su fuente.
   const allowed = role ? allowedRoutes(role) : null;
-  const sidebar = allowed ? sidebarItems.filter((i) => allowed.includes(i.href)) : sidebarItems;
+  const groups = sidebarGroups
+    .map((g) => ({
+      ...g,
+      items: allowed ? g.items.filter((i) => allowed.includes(i.href)) : g.items,
+    }))
+    .filter((g) => g.items.length > 0);
+  // Un único grupo visible no merece título: consultor y mipyme solo ven
+  // «Operación», y un encabezado solitario es ruido.
+  const showGroupLabels = groups.length > 1;
   const tabs = allowed ? navItems.filter((i) => allowed.includes(i.href)) : navItems;
 
   return (
@@ -67,25 +75,39 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="font-[family-name:var(--font-display)] font-bold text-lg">NODUS</span>
         </div>
         <nav aria-label="Navegación principal" className="flex flex-col gap-1">
-          {sidebar.map((item) => {
-            const Icon = iconMap[item.icon] ?? LayoutDashboard;
-            const active = isActive(pathname, item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={active ? 'page' : undefined}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  active
-                    ? 'bg-primary/10 text-primary-deep'
-                    : 'text-ink-muted hover:bg-cream-dark hover:text-ink'
-                }`}
-              >
-                <Icon size={18} />
-                {item.label}
-              </Link>
-            );
-          })}
+          {groups.map((group, index) => (
+            <div
+              key={group.label}
+              role="group"
+              aria-label={showGroupLabels ? group.label : undefined}
+              className={`flex flex-col gap-1 ${index > 0 ? 'mt-4' : ''}`}
+            >
+              {showGroupLabels && (
+                <span className="px-3 pt-1 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+                  {group.label}
+                </span>
+              )}
+              {group.items.map((item) => {
+                const Icon = iconMap[item.icon] ?? LayoutDashboard;
+                const active = isActive(pathname, item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={active ? 'page' : undefined}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      active
+                        ? 'bg-primary/10 text-primary-deep'
+                        : 'text-ink-muted hover:bg-cream-dark hover:text-ink'
+                    }`}
+                  >
+                    <Icon size={18} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* Bloque de cuenta: quién eres + salir. En escritorio esta es la única
