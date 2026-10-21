@@ -10,6 +10,7 @@ import { slaRouter } from './sla';
 import { workflowRouter } from './workflow';
 import { consultantsRouter } from './consultants';
 import { documentsRouter } from './documents';
+import { adminRouter } from './admin';
 
 export const appRouter = router({
   cases: casesRouter,
@@ -23,6 +24,7 @@ export const appRouter = router({
   workflow: workflowRouter,
   consultants: consultantsRouter,
   documents: documentsRouter,
+  admin: adminRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -30,6 +30,7 @@ export const sidebarItems = [
   { label: 'Bitácora', href: '/bitacora', icon: 'ScrollText' },
   { label: 'Workflow', href: '/workflow', icon: 'Workflow' },
   { label: 'SLA & Alertas', href: '/alertas', icon: 'Bell' },
+  { label: 'Configuración', href: '/admin', icon: 'SlidersHorizontal' },
 ];
 
 // Las rutas visibles por rol YA NO se definen aquí: se derivan de la tabla de

@@ -12,6 +12,7 @@ import {
   Users,
   ScrollText,
   Workflow,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { allowedRoutes } from '@nodus/rbac';
@@ -28,6 +29,7 @@ const iconMap: Record<string, React.ElementType> = {
   Users,
   ScrollText,
   Workflow,
+  SlidersHorizontal,
 };
 
 export function AppShell({ children }: { children: React.ReactNode }) {

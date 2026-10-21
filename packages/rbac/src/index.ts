@@ -11,7 +11,13 @@
  * propia fuente única. Ver packages/workflow.
  */
 
-export type Role = 'advisory' | 'admin' | 'consultor' | 'mipyme' | 'system';
+/**
+ * Los roles del sistema, como VALOR. El tipo se deriva de aquí para que no
+ * puedan divergir: los validadores de entrada necesitan la lista en tiempo de
+ * ejecución, y mantener dos copias es como empiezan las incoherencias.
+ */
+export const ROLES = ['advisory', 'admin', 'consultor', 'mipyme', 'system'] as const;
+export type Role = (typeof ROLES)[number];
 
 export interface Actor {
   id: string;
@@ -32,6 +38,15 @@ export const RESOURCE_ACCESS = {
   workflowDefinition: ['advisory', 'admin'],
   notifications: ['advisory', 'admin', 'consultor', 'mipyme'],
   profile: ['advisory', 'admin', 'consultor', 'mipyme'],
+  /**
+   * Parametrizacion del sistema: SOLO Administrador.
+   *
+   * No es una restriccion arbitraria: el encargo asigna al Administrador la
+   * "parametrizacion LOV, gestion de usuarios y gobierno del sistema". Advisory
+   * OPERA el flujo; Administrador DEFINE las reglas con las que se opera.
+   * Separar ambas cosas es la diferencia entre gobernar y ejecutar.
+   */
+  configuration: ['admin'],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Resource = keyof typeof RESOURCE_ACCESS;
@@ -45,6 +60,10 @@ export const ACTION_ACCESS = {
   'consultant.setStatus': ['advisory', 'admin'],
   'consultant.classify': ['advisory', 'admin'],
   'consultant.invite': ['advisory', 'admin'],
+  // Cambios de configuracion: definen las reglas, no las ejecutan.
+  'config.workflow': ['admin'],
+  'config.sla': ['admin'],
+  'config.lov': ['admin'],
   'consultant.profile': ['consultor'],
   'sla.sweep': ['advisory', 'admin'],
   'document.upload': ['advisory', 'admin', 'consultor', 'mipyme'],
@@ -74,6 +93,7 @@ export const RESOURCE_ROUTE: Record<Resource, string> = {
   workflowDefinition: '/workflow',
   notifications: '/alertas',
   profile: '/perfil',
+  configuration: '/admin',
 };
 
 /** Rutas visibles para un rol (el nav es un reflejo de los permisos). */
