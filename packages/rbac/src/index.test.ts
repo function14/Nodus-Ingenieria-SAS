@@ -21,7 +21,7 @@ const mipyme: Actor = { id: 'u-mip', role: 'mipyme', tenantId: 't1', companyId: 
 
 describe('canAccess (recursos de lectura)', () => {
   it('reserva los directorios y el ledger a PMO/Admin', () => {
-    for (const resource of ['companyDirectory', 'consultantDirectory', 'auditLedger', 'workflowDefinition', 'dashboard'] as const) {
+    for (const resource of ['companyDirectory', 'consultantDirectory', 'auditLedger', 'workflowDefinition', 'pmoDashboard'] as const) {
       expect(canAccess(advisory, resource)).toBe(true);
       expect(canAccess(admin, resource)).toBe(true);
       expect(canAccess(consultor, resource)).toBe(false);
@@ -76,7 +76,10 @@ describe('allowedRoutes (el nav deriva de los permisos)', () => {
       expect(routes).not.toContain('/consultores');
       expect(routes).not.toContain('/bitacora');
       expect(routes).not.toContain('/workflow');
-      expect(routes).not.toContain('/');
+      // `/` SI la tienen: cada rol tiene su propio panel en esa ruta (Workbench
+      // el consultor, Portal la mipyme). Lo que no tienen es el DATO del PMO,
+      // que lo protege el recurso `pmoDashboard` y se comprueba arriba.
+      expect(routes).toContain('/');
       expect(routes).toContain('/casos');
       expect(routes).toContain('/alertas');
       expect(routes).toContain('/perfil');

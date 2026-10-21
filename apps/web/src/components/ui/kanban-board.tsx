@@ -1,3 +1,5 @@
+import { Lock } from 'lucide-react';
+
 interface KanbanCard {
   id: string;
   humanId: string;
@@ -69,8 +71,15 @@ export function KanbanBoard({
                 <div className="font-[family-name:var(--font-mono)] text-[11px] text-ink-muted">
                   {card.humanId}
                 </div>
-                <div className={`mt-1 ${card.masked ? 'italic text-ink-muted' : 'font-medium'}`}>
-                  {card.masked ? `🔒 ${card.company}` : card.company}
+                {/* Sin emoji: la iconografía operativa es Lucide (§6.3 del doc
+                    de diseño). Un emoji además cambia de forma según el sistema. */}
+                <div
+                  className={`mt-1 flex items-start gap-1.5 ${
+                    card.masked ? 'italic text-ink-muted' : 'font-medium'
+                  }`}
+                >
+                  {card.masked && <Lock size={12} className="mt-0.5 shrink-0" aria-hidden="true" />}
+                  <span className="min-w-0 break-words">{card.company}</span>
                 </div>
                 {card.assignee && <div className="mt-1 text-xs text-ink-muted">{card.assignee}</div>}
               </div>

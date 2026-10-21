@@ -12,7 +12,11 @@ export function SLAHeatmap({
         const total = row.ok + row.warn + row.critical;
         return (
           <div key={row.stage} className="flex items-center gap-3">
-            <span className="w-24 text-xs text-ink-muted text-right shrink-0">{row.stage}</span>
+            {/* 96px cortaban «Pendiente de contratación». Una etiqueta de etapa
+                truncada hace ilegible la fila entera. */}
+            <span className="w-32 sm:w-40 text-xs text-ink-muted text-right shrink-0 leading-tight">
+              {row.stage}
+            </span>
             <div className="flex-1 flex h-5 rounded overflow-hidden border border-border bg-cream-dark">
               <div className="bg-success transition-all" style={{ width: `${(row.ok / totalMax) * 100}%` }} />
               <div className="bg-warn transition-all" style={{ width: `${(row.warn / totalMax) * 100}%` }} />

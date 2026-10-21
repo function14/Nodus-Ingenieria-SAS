@@ -2,7 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { computeRowHash, appendAuditRow } from '@nodus/db';
 import { validateSubmission } from '@nodus/forms';
-import { applyCaseMask } from '@nodus/rbac';
+import { applyCaseMask, caseReadScope, canReadCase } from '@nodus/rbac';
 import {
   caseByIdInputSchema,
   caseListInputSchema,
@@ -26,9 +26,19 @@ export const casesRouter = router({
   list: resourceProcedure('cases')
     .input(caseListInputSchema)
     .query(async ({ ctx, input }) => {
+      // El ALCANCE (qué filas) lo decide @nodus/rbac, igual que el masking
+      // (qué campos). Son reglas distintas: una mipyme no tiene nada que
+      // enmascarar, pero sí tiene mucho que no le corresponde ver.
+      const scope = caseReadScope(ctx.user);
+      // Una mipyme sin empresa asignada no ve ninguno. Se resuelve ANTES de
+      // consultar: dejar pasar un `companyId` nulo al filtro sería no filtrar.
+      if (scope.kind === 'company' && scope.companyId === null) return [];
+      const soloEmpresa = scope.kind === 'company' ? scope.companyId : null;
+
       const rows = await ctx.prisma.case.findMany({
         where: {
           tenantId: ctx.user.tenantId,
+          ...(soloEmpresa ? { companyId: soloEmpresa } : {}),
           ...(input?.stateCode ? { currentState: { code: input.stateCode } } : {}),
         },
         include: { company: true, currentState: true, assignedUser: true },
@@ -75,6 +85,9 @@ export const casesRouter = router({
         },
       });
       if (!c) throw new TRPCError({ code: 'NOT_FOUND' });
+      // Un caso fuera de alcance se responde NOT_FOUND y no FORBIDDEN: decir
+      // "existe pero no es tuyo" ya filtra que esa empresa tiene ese caso.
+      if (!canReadCase(ctx.user, c)) throw new TRPCError({ code: 'NOT_FOUND' });
 
       // MISMA regla de masking que la lista (fuente unica: @nodus/rbac).
       const view = applyCaseMask(ctx.user, c, { title: c.title, company: c.company.name });
@@ -97,9 +110,12 @@ export const casesRouter = router({
     .query(async ({ ctx, input }) => {
       const c = await ctx.prisma.case.findFirst({
         where: { id: input.caseId, tenantId: ctx.user.tenantId },
-        select: { currentStateId: true },
+        select: { currentStateId: true, companyId: true },
       });
       if (!c) throw new TRPCError({ code: 'NOT_FOUND' });
+      // Las acciones disponibles son información del caso: si el caso no está
+      // en alcance, tampoco lo está saber qué se puede hacer con él.
+      if (!canReadCase(ctx.user, c)) throw new TRPCError({ code: 'NOT_FOUND' });
       const transitions = await ctx.prisma.caseTransition.findMany({
         where: { fromStateId: c.currentStateId },
         include: { toState: true },
@@ -203,6 +219,16 @@ export const casesRouter = router({
         select: { id: true },
       });
       if (!company) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Empresa inválida' });
+      // `companyId` viene del cliente, así que una mipyme podía abrir un caso a
+      // nombre de otra empresa del tenant. El alcance de escritura es el mismo
+      // que el de lectura: su empresa. Advisory/admin sí abren por cuenta ajena,
+      // que es su función.
+      if (!canReadCase(ctx.user, { companyId: company.id })) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Solo puedes abrir casos para tu propia empresa',
+        });
+      }
 
       const initial = await ctx.prisma.caseState.findFirst({ where: { isInitial: true } });
       if (!initial) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Sin estado inicial' });

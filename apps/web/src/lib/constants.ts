@@ -22,7 +22,10 @@ export const navItems = [
 ];
 
 export const sidebarItems = [
-  { label: 'Dashboard PMO', href: '/', icon: 'LayoutDashboard' },
+  // «Panel» y no «Dashboard PMO»: la ruta `/` sirve ahora un panel distinto por
+  // rol (Command Center, Workbench, Portal). El título concreto lo pone cada
+  // panel en su H1, que es donde no puede confundir.
+  { label: 'Panel', href: '/', icon: 'LayoutDashboard' },
   { label: 'Casos', href: '/casos', icon: 'FolderOpen' },
   { label: 'Bolsa interna', href: '/bolsa', icon: 'Briefcase' },
   { label: 'Empresas', href: '/empresas', icon: 'Building2' },

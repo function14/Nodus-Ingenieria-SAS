@@ -29,7 +29,20 @@ export interface Actor {
 
 /** Recursos de LECTURA protegidos. */
 export const RESOURCE_ACCESS = {
-  dashboard: ['advisory', 'admin'],
+  /**
+   * `/` la tienen TODOS los roles, porque cada uno tiene su propio panel: el
+   * PMO su Command Center, el consultor su Workbench y la mipyme su Portal.
+   * Antes `/` era sinónimo de "dashboard PMO", así que consultor y mipyme
+   * aterrizaban en una ruta que les rebotaba a /casos: no tenían casa.
+   *
+   * Qué DATO sirve cada panel se decide abajo, con un recurso por rol. Separar
+   * "puede entrar a la ruta" de "puede leer esta proyección" es lo que permite
+   * que los tres paneles compartan URL sin compartir contenido.
+   */
+  home: ['advisory', 'admin', 'consultor', 'mipyme'],
+  pmoDashboard: ['advisory', 'admin'],
+  consultorWorkbench: ['consultor'],
+  mipymePortal: ['mipyme'],
   cases: ['advisory', 'admin', 'consultor', 'mipyme'],
   bolsa: ['advisory', 'admin', 'consultor'],
   companyDirectory: ['advisory', 'admin'],
@@ -83,8 +96,13 @@ export function canPerform(actor: Pick<Actor, 'role'>, action: Action): boolean 
  * Ruta pública de cada recurso. El NAV se deriva de la misma tabla de permisos,
  * de modo que ocultar un link y bloquear el dato nunca se desincronizan.
  */
-export const RESOURCE_ROUTE: Record<Resource, string> = {
-  dashboard: '/',
+export const RESOURCE_ROUTE: Record<Resource, string | null> = {
+  home: '/',
+  // Los tres paneles por rol son DATO, no ruta: viven todos bajo `/`. Un
+  // recurso con ruta `null` protege una proyección sin añadir un enlace.
+  pmoDashboard: null,
+  consultorWorkbench: null,
+  mipymePortal: null,
   cases: '/casos',
   bolsa: '/bolsa',
   companyDirectory: '/empresas',
@@ -100,7 +118,8 @@ export const RESOURCE_ROUTE: Record<Resource, string> = {
 export function allowedRoutes(role: string): string[] {
   return (Object.keys(RESOURCE_ACCESS) as Resource[])
     .filter((resource) => canAccess({ role }, resource))
-    .map((resource) => RESOURCE_ROUTE[resource]);
+    .map((resource) => RESOURCE_ROUTE[resource])
+    .filter((route): route is string => route !== null);
 }
 
 /* ------------------------------------------------------------------ */
@@ -137,6 +156,44 @@ export function canAccessCaseDocuments(
   if (actor.role === 'consultor') return kase.assignedUserId === actor.id;
   if (actor.role === 'mipyme') return actor.companyId === kase.companyId;
   return true;
+}
+
+/**
+ * Alcance de LECTURA de casos.
+ *
+ * El masking y el alcance resuelven dos problemas distintos y confundirlos deja
+ * un hueco: `applyCaseMask` oculta la IDENTIDAD del cliente al consultor, pero
+ * no limita QUÉ FILAS devuelve una consulta. Mientras el masking solo cubría al
+ * consultor, la mipyme recibía los casos de todas las empresas del tenant con
+ * título y nombre reales, porque para ella no había nada que enmascarar — ni
+ * nada que filtrar.
+ *
+ * La mipyme es un actor de UNA empresa: su alcance es su empresa, igual que ya
+ * ocurría en los documentos (`canAccessCaseDocuments`) y en las notificaciones
+ * (`notificationScope`). Esta función existe para que esas tres respuestas
+ * salgan de la misma regla en vez de reimplementarse en cada router.
+ *
+ * `{ kind: 'company', companyId: null }` NO significa "todas": significa que
+ * una mipyme sin empresa asignada no ve ninguna. Un `null` que se interprete
+ * como comodín es exactamente como se construye una fuga.
+ */
+export type CaseReadScope =
+  | { kind: 'all' }
+  | { kind: 'company'; companyId: string | null };
+
+export function caseReadScope(actor: Pick<Actor, 'role' | 'companyId'>): CaseReadScope {
+  if (actor.role === 'mipyme') return { kind: 'company', companyId: actor.companyId ?? null };
+  return { kind: 'all' };
+}
+
+/** ¿Puede este actor LEER este caso concreto? Misma regla que `caseReadScope`. */
+export function canReadCase(
+  actor: Pick<Actor, 'role' | 'companyId'>,
+  kase: { companyId: string | null },
+): boolean {
+  const scope = caseReadScope(actor);
+  if (scope.kind === 'all') return true;
+  return scope.companyId !== null && scope.companyId === kase.companyId;
 }
 
 export interface MaskableCase {
