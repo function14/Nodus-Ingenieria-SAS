@@ -31,7 +31,7 @@ function faseDe(order: number) {
 export const dashboardRouter = router({
   pmo: resourceProcedure('pmoDashboard').query(async ({ ctx }) => {
     const tenantId = ctx.user.tenantId;
-    const [states, cases, timers] = await Promise.all([
+    const [states, cases, timers, entradas] = await Promise.all([
       ctx.prisma.caseState.findMany({ orderBy: { order: 'asc' } }),
       ctx.prisma.case.findMany({
         where: { tenantId },
@@ -41,6 +41,33 @@ export const dashboardRouter = router({
         where: { status: { in: ['RUNNING', 'WARN', 'BREACHED'] }, case: { tenantId } },
         include: { rule: true, case: { include: { currentState: true } } },
       }),
+      /**
+       * Cada ENTRADA de un caso en un estado, según la bitácora.
+       *
+       * `CASO_CREADO` ya registra `toState = CREADO`, así que la creación y las
+       * transiciones se tratan igual y el estado inicial no necesita un caso
+       * aparte.
+       *
+       * El filtro por `entityType` NO es decorativo: `CONSULTOR_ESTADO` y
+       * `ACLARACION_SOLICITADA` también escriben `toState`, sobre un Consultant
+       * y un FormSubmission. Sin este filtro, un cambio de estado de un
+       * consultor contaría como un caso avanzando de etapa.
+       *
+       * El `groupBy` por (estado, caso) deja que Postgres haga la deduplicación:
+       * un caso que pasó dos veces por «Propuesta enviada» —porque volvió por
+       * ajustes— cuenta una sola vez, y además no nos traemos la bitácora
+       * entera, que crece sin techo.
+       */
+      ctx.prisma.auditLog.groupBy({
+        by: ['toState', 'entityId'],
+        where: {
+          tenantId,
+          entityType: 'Case',
+          action: { in: ['CASO_CREADO', 'CASO_TRANSICION'] },
+          toState: { not: null },
+        },
+        _count: { _all: true },
+      }),
     ]);
 
     const now = Date.now();
@@ -49,8 +76,22 @@ export const dashboardRouter = router({
     const total = cases.length;
     const cerrados = cases.filter((c) => c.currentState.isTerminal).length;
     const activos = total - cerrados;
+    /**
+     * «Conversión» contaba como convertido TODO estado terminal, y uno de los
+     * dos terminales es «Cerrado sin contratación»: el negocio que se pierde.
+     * Un panel que suma las derrotas a la tasa de éxito no es un panel.
+     *
+     * `ESTADO_EXITO` es la única pieza de este cálculo que no sale del dato, y
+     * su sitio propio sería una marca en CaseState (`isSuccess`), junto a
+     * `isTerminal`, para que Administración pudiera declarar qué cierre cuenta
+     * como ganado sin tocar código. No se añade aquí porque exige migración;
+     * queda señalado para no fingir que está resuelto.
+     */
+    const ESTADO_EXITO = 'CERRADO';
+    const ganados = cases.filter((c) => c.currentState.code === ESTADO_EXITO).length;
+    const perdidos = cerrados - ganados;
     const criticos = timers.filter((t) => now >= t.dueAt.getTime()).length;
-    const conversion = total > 0 ? Math.round((cerrados / total) * 100) : 0;
+    const conversion = total > 0 ? Math.round((ganados / total) * 100) : 0;
     /**
      * `key` existe para que la UI pueda darle a cada KPI su icono sin adivinar
      * por el texto de la etiqueta, y `tono` para que el único KPI accionable
@@ -66,8 +107,22 @@ export const dashboardRouter = router({
         delta: criticos > 0 ? 'Requieren acción' : 'Sin vencidos',
         tono: criticos > 0 ? ('alerta' as const) : ('neutral' as const),
       },
-      { key: 'conversion', label: 'Conversión', value: conversion + '%', delta: cerrados + ' cerrados', tono: 'neutral' as const },
-      { key: 'cerrados', label: 'Cerrados', value: cerrados, delta: 'de ' + total, tono: 'neutral' as const },
+      {
+        key: 'conversion',
+        label: 'Conversión',
+        value: conversion + '%',
+        delta: ganados + ' ganados de ' + total,
+        tono: 'neutral' as const,
+      },
+      {
+        key: 'cerrados',
+        label: 'Cerrados',
+        value: cerrados,
+        // Se desglosa a propósito: «cerrados» mezcla dos finales opuestos y el
+        // KPI de al lado ahora solo cuenta uno.
+        delta: perdidos > 0 ? perdidos + ' sin contratación' : 'todos con contratación',
+        tono: 'neutral' as const,
+      },
     ];
 
     // Pipeline agrupado por fase: 6 columnas legibles en vez de 17, sin perder
@@ -97,10 +152,38 @@ export const dashboardRouter = router({
       };
     });
 
-    // Funnel: acumulado por orden (pipeline lineal -> un caso en estado N alcanzo 1..N)
+    /**
+     * Embudo: cuántos casos ENTRARON de verdad en cada etapa, según la bitácora.
+     *
+     * Antes se infería del ordinal del estado actual (`currentState.order >=
+     * s.order`), con el supuesto de que el flujo es una línea recta. No lo es, y
+     * el atajo mentía en los dos sentidos:
+     *
+     * - Hacia arriba: «Cerrado sin contratación» tiene orden 16, así que un caso
+     *   que se perdió en la decisión del cliente se contaba como si hubiera
+     *   pasado por «En ejecución» (14) y «Listo para cierre» (15). El embudo
+     *   inflaba justo las etapas que importa medir.
+     * - Hacia abajo: un caso devuelto por «Ajustes de propuesta» (10) a
+     *   «Propuesta enviada» (8) baja de ordinal, y perdía las etapas que sí
+     *   había alcanzado.
+     *
+     * La bitácora no infiere: registra cada entrada en cada estado, está
+     * encadenada por hash y es el sistema de registro del producto. Si el
+     * embudo es el número que mira un PMO para decidir, tiene que salir de la
+     * misma evidencia que se audita.
+     *
+     * Se cruza con los casos vivos para no contar filas de casos que ya no
+     * existen: la bitácora es append-only y sobrevive a lo que registra.
+     */
+    const idsVivos = new Set(cases.map((c) => c.id));
+    const alcanzaron = new Map<string, number>();
+    for (const fila of entradas) {
+      if (!fila.toState || !idsVivos.has(fila.entityId)) continue;
+      alcanzaron.set(fila.toState, (alcanzaron.get(fila.toState) ?? 0) + 1);
+    }
     const funnel = states.map((s) => ({
       stage: s.name,
-      value: cases.filter((c) => c.currentState.order >= s.order).length,
+      value: alcanzaron.get(s.code) ?? 0,
     }));
 
     // SLA heatmap + radial timers
