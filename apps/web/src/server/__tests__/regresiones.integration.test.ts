@@ -516,3 +516,28 @@ describe('R7 - marcar leido solo toca lo dirigido a quien llama', () => {
     await prisma.notification.deleteMany({ where: { type: 'R7' } });
   });
 });
+
+/* ------------------------------------------------------------------ */
+describe('R8 - la ficha de consultor no es mas permisiva que el directorio', () => {
+  it('advisory la abre y trae casos, postulaciones e historial', async () => {
+    const c = await prisma.consultant.findFirstOrThrow({ where: { tenantId } });
+    const f = await callerFor(advisory).consultants.byId({ userId: c.userId });
+    expect(f.humanId).toBe(c.humanId);
+    expect(Array.isArray(f.asignados)).toBe(true);
+    expect(Array.isArray(f.postulaciones)).toBe(true);
+    expect(Array.isArray(f.historial)).toBe(true);
+  });
+
+  it('un consultor NO puede abrir la ficha de nadie', async () => {
+    const c = await prisma.consultant.findFirstOrThrow({ where: { tenantId } });
+    await expect(
+      callerFor(consultor).consultants.byId({ userId: c.userId }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
+  it('pedir un usuario que no es consultor devuelve NOT_FOUND', async () => {
+    await expect(
+      callerFor(advisory).consultants.byId({ userId: advisory.id }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+});

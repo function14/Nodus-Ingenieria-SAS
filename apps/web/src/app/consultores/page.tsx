@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { trpc, type RouterOutputs } from '@/lib/trpc/client';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { useToast } from '@/components/ui/toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { InvitarConsultor } from './_invitar';
+import { FichaConsultor } from './_ficha';
 
 const STATUS_ORDER = ['registrado', 'en_validacion', 'habilitado', 'condicionado', 'suspendido', 'inactivo'];
 
@@ -22,6 +24,7 @@ function StatusSelect({ userId, status }: { userId: string; status: string | nul
   return (
     <select
       aria-label="Estado del consultor"
+      onClick={(e) => e.stopPropagation()}
       value={status ?? ''}
       disabled={set.isPending}
       onChange={(e) => {
@@ -42,6 +45,7 @@ type Consultor = RouterOutputs['consultants']['list'][number];
 
 export default function ConsultoresPage() {
   const { data, isLoading, error } = trpc.consultants.list.useQuery();
+  const [fichaDe, setFichaDe] = useState<string | null>(null);
 
   const columns: Column<Consultor>[] = [
     {
@@ -132,9 +136,13 @@ export default function ConsultoresPage() {
             }
             searchPlaceholder="Buscar por nombre, correo o especialidad…"
             emptyMessage="Aún no hay consultores."
+            // La fila abre la ficha; el selector de estado detiene la
+            // propagación para que cambiar el estado no abra el panel.
+            onRowClick={(u) => setFichaDe(u.id)}
           />
         </CardContent>
       </Card>
+      {fichaDe && <FichaConsultor userId={fichaDe} onClose={() => setFichaDe(null)} />}
     </div>
   );
 }

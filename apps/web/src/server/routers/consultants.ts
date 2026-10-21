@@ -48,6 +48,81 @@ export const consultantsRouter = router({
     }));
   }),
 
+  /**
+   * Ficha de un consultor: su clasificacion, sus casos asignados, sus
+   * postulaciones y su historial de estado.
+   *
+   * Va por `consultantDirectory`, igual que la lista: quien no puede ver el
+   * directorio tampoco puede ver una ficha suelta. Reutilizar el recurso evita
+   * que el detalle acabe siendo mas permisivo que el listado, que es como
+   * aparecieron las fugas anteriores.
+   */
+  byId: resourceProcedure('consultantDirectory')
+    .input(z.object({ userId: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const user = await ctx.prisma.user.findFirst({
+        where: { id: input.userId, tenantId: ctx.user.tenantId, role: { code: 'consultor' } },
+        include: { consultant: true },
+      });
+      if (!user) throw new TRPCError({ code: 'NOT_FOUND' });
+
+      const [asignados, postulaciones, historial] = await Promise.all([
+        ctx.prisma.case.findMany({
+          where: { assignedUserId: user.id, tenantId: ctx.user.tenantId },
+          include: { company: true, currentState: true },
+          orderBy: { updatedAt: 'desc' },
+        }),
+        ctx.prisma.postulation.findMany({
+          where: { consultorId: user.id },
+          include: { case: { include: { company: true, currentState: true } } },
+          orderBy: { createdAt: 'desc' },
+        }),
+        ctx.prisma.auditLog.findMany({
+          where: {
+            tenantId: ctx.user.tenantId,
+            entityType: 'Consultant',
+            entityId: user.consultant?.id ?? '',
+          },
+          include: { actor: { select: { name: true } } },
+          orderBy: { seq: 'desc' },
+          take: 20,
+        }),
+      ]);
+
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        humanId: user.consultant?.humanId ?? null,
+        status: user.consultant?.status ?? null,
+        level: user.consultant?.levelCode ?? null,
+        specialties: user.consultant?.specialtyCodes ?? [],
+        availability: user.consultant?.availability ?? null,
+        enabledAt: user.consultant?.enabledAt ?? null,
+        asignados: asignados.map((c) => ({
+          id: c.id,
+          humanId: c.humanId,
+          company: c.company.name,
+          state: { name: c.currentState.name, color: c.currentState.color },
+        })),
+        postulaciones: postulaciones.map((p) => ({
+          id: p.id,
+          createdAt: p.createdAt,
+          caseId: p.caseId,
+          humanId: p.case.humanId,
+          company: p.case.company.name,
+          state: { name: p.case.currentState.name, color: p.case.currentState.color },
+        })),
+        historial: historial.map((h) => ({
+          seq: h.seq,
+          action: h.action,
+          actor: h.actor?.name ?? 'Sistema',
+          createdAt: h.createdAt,
+          payload: h.payload,
+        })),
+      };
+    }),
+
   my: resourceProcedure('profile').query(async ({ ctx }) => {
     return ctx.prisma.consultant.findUnique({ where: { userId: ctx.user.id } });
   }),
