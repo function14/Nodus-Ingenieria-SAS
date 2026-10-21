@@ -66,6 +66,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-full min-h-screen">
+      {/* Accesibilidad: primer enlace focuseable de cada página. Con teclado,
+          salta los menús (sidebar + bloque de cuenta) y aterriza directo en el
+          contenido. Invisible hasta que recibe foco. */}
+      <a
+        href="#contenido"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-lg focus:bg-primary-deep focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white focus:shadow-offset-sm"
+      >
+        Saltar al contenido
+      </a>
+
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-surface p-4 gap-2 shrink-0">
         <div className="flex items-center gap-2 mb-6">
@@ -153,7 +163,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 pb-24 lg:pb-6">{children}</main>
+        <main
+          id="contenido"
+          tabIndex={-1}
+          className="flex-1 overflow-y-auto p-4 pb-24 lg:pb-6 focus:outline-none"
+        >
+          {children}
+        </main>
 
         {/* Mobile bottom tabs */}
         <nav
