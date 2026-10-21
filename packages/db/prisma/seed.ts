@@ -510,21 +510,85 @@ await prisma.notification.deleteMany();
     { humanId: 'NOD-2026-009', company: 'Transportes Rápidos', state: 'CREADO', assignee: null, area: 'operaciones', nivel: 'media' },
   ];
 
+  /**
+   * Ruta feliz del expediente, por codigo de transicion.
+   *
+   * Existe porque el flujo se bifurca y no se puede adivinar: desde
+   * EN_DECISION_CLIENTE salen tres caminos (aceptar, pedir ajustes, cerrar sin
+   * contratacion), y solo uno es el que sigue un caso que avanza. Declararla
+   * explicitamente es mas honesto que deducirla del `order`.
+   */
+  const rutaFeliz = [
+    'crear_revision',
+    'clasificar',
+    'publicar_bolsa',
+    'asignar',
+    'iniciar_diseno',
+    'propuesta_lista_qa',
+    'autorizar_envio_propuesta',
+    'abrir_periodo_decision',
+    'aceptar_propuesta',
+    'formalizar_contratacion',
+    'autorizar_ejecucion',
+    'iniciar_ejecucion',
+    'listo_cierre',
+    'cerrar',
+  ];
+  const transicionPorCodigo = new Map(transitions.map((t) => [t.code, t]));
+  /** Quien ejecuta cada transicion: el primer rol humano que la tiene. */
+  const actorDe = (roles: string[]) => users[roles.find((r) => r !== 'system') ?? 'advisory'];
+
   let seq = 0;
   let prevHash: string | null = null;
   let timerIdx = 0;
   const createdCases: Record<string, string> = {};
   for (const c of caseData) {
+    /**
+     * El caso NACE en el estado inicial y recorre sus transiciones, en vez de
+     * aparecer ya colocado en su estado final.
+     *
+     * Antes el seed hacia `currentStateId: states[c.state]` y escribia una
+     * unica fila CASO_CREADO. El resultado era un caso cuyo propio expediente
+     * no explicaba su estado: NOD-2026-002 figuraba "En ejecucion" con una
+     * linea de tiempo que solo decia "caso creado". En un producto cuyo
+     * diferencial es una bitacora encadenada, sembrar casos sin historia
+     * vacia la demostracion, y ademas deja el embudo —que cuenta entradas
+     * reales en cada etapa— en cero para todo salvo CREADO.
+     */
+    const pasos: typeof transitions = [];
+    if (c.state !== 'CREADO') {
+      let actual = 'CREADO';
+      for (const code of rutaFeliz) {
+        const t = transicionPorCodigo.get(code);
+        if (!t || t.from !== actual) continue;
+        pasos.push(t);
+        actual = t.to;
+        if (actual === c.state) break;
+      }
+      if (actual !== c.state) {
+        throw new Error(
+          `Seed: no hay ruta feliz de CREADO a ${c.state} (${c.humanId}). ` +
+            'Revisa `rutaFeliz` si cambiaste el maestro de transiciones.',
+        );
+      }
+    }
+
+    // Las marcas de tiempo se reparten hacia atras para que la linea de tiempo
+    // se lea como un expediente y no como 14 eventos en el mismo milisegundo.
+    const PASO_MS = 6 * 3600 * 1000;
+    const nacimiento = new Date(Date.now() - (pasos.length + 1) * PASO_MS);
+
     const created = await prisma.case.create({
       data: {
         tenantId: tenant.id,
         humanId: c.humanId,
         title: 'Diagnostico y acompanamiento - ' + c.company,
         companyId: companies[c.company],
-        currentStateId: states[c.state],
+        currentStateId: states['CREADO'],
         assignedUserId: c.assignee ? users[c.assignee] : null,
         areaCode: c.area,
         complexityLevel: c.nivel,
+        createdAt: nacimiento,
       },
     });
     createdCases[c.humanId] = created.id;
@@ -553,9 +617,60 @@ await prisma.notification.deleteMany();
         payload: rec.payload as object,
         prevHash,
         rowHash,
+        createdAt: nacimiento,
       },
     });
     prevHash = rowHash;
+
+    // Cada transicion deja su eslabon, con el MISMO mecanismo que el motor:
+    // seq continua, rowHash encadena con el anterior y el payload nombra la
+    // transicion. Asi `verifyChain` sigue validando sobre datos sembrados.
+    for (const [i, t] of pasos.entries()) {
+      const cuando = new Date(nacimiento.getTime() + (i + 1) * PASO_MS);
+      seq += 1;
+      const r = {
+        seq,
+        action: 'CASO_TRANSICION',
+        entityType: 'Case',
+        entityId: created.id,
+        fromState: t.from as string | null,
+        toState: t.to,
+        payload: { transicion: t.code, nombre: t.name } as unknown,
+      };
+      const h = computeRowHash(prevHash, r);
+      await prisma.auditLog.create({
+        data: {
+          tenantId: tenant.id,
+          seq,
+          caseId: created.id,
+          actorId: actorDe(t.roles),
+          action: r.action,
+          entityType: r.entityType,
+          entityId: r.entityId,
+          fromState: r.fromState,
+          toState: r.toState,
+          payload: r.payload as object,
+          prevHash,
+          rowHash: h,
+          createdAt: cuando,
+        },
+      });
+      prevHash = h;
+    }
+
+    if (pasos.length > 0) {
+      await prisma.case.update({
+        where: { id: created.id },
+        data: {
+          currentStateId: states[c.state],
+          // `version` es el contador del bloqueo optimista: una transicion, un
+          // incremento. Dejarlo en 1 con 13 transiciones detras seria mentir
+          // sobre cuantas veces cambio el caso.
+          version: 1 + pasos.length,
+          updatedAt: new Date(nacimiento.getTime() + pasos.length * PASO_MS),
+        },
+      });
+    }
 
     // SLA timer para casos activos (variando el consumo: ok / riesgo / critico)
     const rule = slaRuleByState[c.state];
