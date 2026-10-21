@@ -21,7 +21,10 @@ export function FunnelChart({ data }: { data: { stage: string; value: number }[]
   const max = Math.max(...data.map((d) => d.value), 1);
 
   return (
-    <div className="flex flex-col">
+    // La separación es constante aunque no haya caída: sin ella, dos etapas con
+    // el mismo valor se fusionan en un único rectángulo y dejan de leerse como
+    // dos pasos distintos.
+    <div className="flex flex-col gap-1.5">
       {data.map((step, i) => {
         const pct = (step.value / max) * 100;
         const previo = i > 0 ? data[i - 1].value : null;
