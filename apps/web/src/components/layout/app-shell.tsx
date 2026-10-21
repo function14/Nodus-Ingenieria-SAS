@@ -13,10 +13,11 @@ import {
   ScrollText,
   Workflow,
   SlidersHorizontal,
+  LogOut,
 } from 'lucide-react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { allowedRoutes } from '@nodus/rbac';
-import { sidebarItems, navItems } from '@/lib/constants';
+import { sidebarItems, navItems, roles } from '@/lib/constants';
 import { RoleSwitcher } from '@/components/ui/role-switcher';
 
 const iconMap: Record<string, React.ElementType> = {
@@ -32,10 +33,21 @@ const iconMap: Record<string, React.ElementType> = {
   SlidersHorizontal,
 };
 
+// Estado activo por PREFIJO: al abrir /casos/NOD-2026-002 el enlace "Casos"
+// sigue encendido y el menú no pierde la referencia de dónde estás.
+// La raíz `/` es el caso aparte: solo coincide exacta, porque como prefijo
+// de toda ruta estaría siempre activa.
+function isActive(pathname: string, href: string): boolean {
+  if (href === '/') return pathname === '/';
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const role = session?.user?.role;
+  const user = session?.user;
+  const roleLabel = roles.find((r) => r.id === role)?.label ?? role ?? '—';
 
   // La pantalla de login se muestra sin el shell (sidebar / bottom tabs).
   if (pathname === '/login') return <>{children}</>;
@@ -59,7 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav aria-label="Navegación principal" className="flex flex-col gap-1 mt-4">
           {sidebar.map((item) => {
             const Icon = iconMap[item.icon] ?? LayoutDashboard;
-            const active = pathname === item.href;
+            const active = isActive(pathname, item.href);
             return (
               <Link
                 key={item.href}
@@ -77,6 +89,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+
+        {/* Bloque de cuenta: quién eres + salir. En escritorio esta es la única
+            salida de la aplicación: /perfil (con su "Cerrar sesión") solo está
+            en las tabs móviles, no en el sidebar. */}
+        {user && (
+          <div className="mt-auto pt-4 border-t border-border flex flex-col gap-1">
+            <Link
+              href="/perfil"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                isActive(pathname, '/perfil') ? 'bg-primary/10' : 'hover:bg-cream-dark'
+              }`}
+            >
+              <span className="w-8 h-8 rounded-full bg-primary-deep text-white flex items-center justify-center text-xs font-bold shrink-0">
+                {(user.name ?? '?').slice(0, 2).toUpperCase()}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium truncate">{user.name}</span>
+                <span className="block text-xs text-ink-muted truncate">{roleLabel}</span>
+              </span>
+            </Link>
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-ink-muted hover:bg-cream-dark hover:text-ink transition-colors"
+            >
+              <LogOut size={18} /> Cerrar sesión
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* Main area */}
@@ -102,7 +143,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         >
           {tabs.map((item) => {
             const Icon = iconMap[item.icon] ?? LayoutDashboard;
-            const active = pathname === item.href;
+            const active = isActive(pathname, item.href);
             return (
               <Link
                 key={item.href}
