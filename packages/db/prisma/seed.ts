@@ -64,6 +64,13 @@ await prisma.notification.deleteMany();
     // Segundo consultor para el ciclo de vida del consultor (F4): no tiene
     // ficha habilitada hasta que el flujo la habilite (RF-027/028).
     { key: 'consultor2', email: 'consultor2@demo.nodus', name: 'Diana Consultora', role: 'consultor' },
+    // Consultores 3-6: pueblan el directorio con el ciclo de vida completo.
+    // Entran con la misma contrasena, pero el recorrido de la demo se hace con
+    // los cinco de arriba.
+    { key: 'consultor3', email: 'consultor3@demo.nodus', name: 'Elena Rojas', role: 'consultor' },
+    { key: 'consultor4', email: 'consultor4@demo.nodus', name: 'Felipe Nunez', role: 'consultor' },
+    { key: 'consultor5', email: 'consultor5@demo.nodus', name: 'Gabriela Soto', role: 'consultor' },
+    { key: 'consultor6', email: 'consultor6@demo.nodus', name: 'Hector Vidal', role: 'consultor' },
     { key: 'mipyme', email: 'mipyme@demo.nodus', name: 'Maria Mipyme', role: 'mipyme' },
     { key: 'admin', email: 'admin@demo.nodus', name: 'Andres Admin', role: 'admin' },
   ];
@@ -461,7 +468,7 @@ await prisma.notification.deleteMany();
     slaRuleByState[s.stateCode] = { id: r.id, hours: s.hours };
   }
 
-  const companyNames = ['FoodTech SAS', 'RetailModa', 'Salud Total', 'Ingeniería Nova', 'Comercial Andes', 'Agrícola del Sur', 'Transportes Rápidos'];
+  const companyNames = ['FoodTech SAS', 'RetailModa', 'Salud Total', 'Ingeniería Nova', 'Comercial Andes', 'Agrícola del Sur', 'Transportes Rápidos', 'Constructora del Norte', 'EduPlus Academia', 'Textiles Andinos'];
   const companies: Record<string, string> = {};
   for (const name of companyNames) {
     const c = await prisma.company.create({
@@ -479,9 +486,36 @@ await prisma.notification.deleteMany();
   // Fichas del ciclo de vida del consultor (F4). Carlos esta HABILITADO
   // (finanzas+tecnologia, senior); Diana esta REGISTRADA y ve la bolsa vacia
   // hasta que el flujo la habilite (criterio de aceptacion F4).
-  const consultantData = [
-    { key: 'consultor', humanId: 'CON-000001', specialties: [], level: 'senior', availability: 'disponible', status: 'habilitado', enabledAt: new Date() },
+  const consultantData: {
+    key: string;
+    humanId: string;
+    specialties: string[];
+    level: string | null;
+    availability: string;
+    status: string;
+    enabledAt: Date | null;
+  }[] = [
+    /**
+     * Carlos declaraba especialidades VACIAS, y con la lista vacia la guarda de
+     * la bolsa lo trata como COMODIN: veia todos los casos y el filtro de
+     * elegibilidad no se podia demostrar.
+     *
+     * Cubre cuatro areas y NO cubre legal ni marketing, que es lo que hace
+     * visible el filtro (ver NOD-2026-010, en bolsa y de area legal).
+     *
+     * OJO si cambias esta lista: las pruebas de F2 y de comunicaciones asignan
+     * casos a Carlos en 'estrategia' y 'operaciones'. No prueban la bolsa, pero
+     * necesitan que sea asignable; si le quitas un area, fallan con "Tu perfil
+     * consultor no esta habilitado para este caso".
+     */
+    { key: 'consultor', humanId: 'CON-000001', specialties: ['estrategia', 'finanzas', 'operaciones', 'tecnologia'], level: 'senior', availability: 'disponible', status: 'habilitado', enabledAt: new Date() },
     { key: 'consultor2', humanId: 'CON-000002', specialties: [], level: null, availability: 'disponible', status: 'registrado', enabledAt: null },
+    // El resto del ciclo de vida (F4). El directorio mostraba dos estados de
+    // seis, asi que la funcionalidad existia sin nada que ensenar.
+    { key: 'consultor3', humanId: 'CON-000003', specialties: ['finanzas', 'operaciones'], level: 'semi-senior', availability: 'disponible', status: 'habilitado', enabledAt: new Date() },
+    { key: 'consultor4', humanId: 'CON-000004', specialties: ['marketing'], level: 'junior', availability: 'disponible', status: 'en_validacion', enabledAt: null },
+    { key: 'consultor5', humanId: 'CON-000005', specialties: ['legal'], level: 'senior', availability: 'ocupado', status: 'condicionado', enabledAt: new Date() },
+    { key: 'consultor6', humanId: 'CON-000006', specialties: ['tecnologia'], level: 'senior', availability: 'ocupado', status: 'suspendido', enabledAt: null },
   ];
   const consultants: Record<string, string> = {};
   for (const kc of consultantData) {
@@ -500,7 +534,29 @@ await prisma.notification.deleteMany();
     consultants[kc.key] = row.id;
   }
 
-  const caseData = [
+  /**
+   * Casos demo.
+   *
+   * No son solo "relleno": cada uno existe para que una funcionalidad concreta
+   * tenga algo que ensenar. Los tres ultimos recorren las ramas que el camino
+   * feliz nunca toca —pedir ajustes, volver a enviar, cerrar sin contratar— y
+   * sin ellos el embudo muestra cero en esas etapas y la conversion no puede
+   * distinguir un negocio ganado de uno perdido.
+   *
+   * `bifurcaEn` + `desvio` describen el caso que se sale del camino feliz: se
+   * recorre la ruta feliz hasta el punto de bifurcacion y desde ahi las
+   * transiciones declaradas.
+   */
+  const caseData: {
+    humanId: string;
+    company: string;
+    state: string;
+    assignee: string | null;
+    area: string;
+    nivel: string;
+    bifurcaEn?: string;
+    desvio?: string[];
+  }[] = [
     { humanId: 'NOD-2026-001', company: 'FoodTech SAS', state: 'CERRADO', assignee: 'consultor', area: 'finanzas', nivel: 'alta' },
     { humanId: 'NOD-2026-002', company: 'RetailModa', state: 'EN_EJECUCION', assignee: 'consultor', area: 'operaciones', nivel: 'media' },
     { humanId: 'NOD-2026-003', company: 'Salud Total', state: 'EN_POSTULACION', assignee: null, area: 'finanzas', nivel: 'media' },
@@ -508,6 +564,29 @@ await prisma.notification.deleteMany();
     { humanId: 'NOD-2026-005', company: 'Comercial Andes', state: 'CLASIFICADO', assignee: null, area: 'marketing', nivel: 'baja' },
     { humanId: 'NOD-2026-008', company: 'Agrícola del Sur', state: 'CREADO', assignee: null, area: 'operaciones', nivel: 'media' },
     { humanId: 'NOD-2026-009', company: 'Transportes Rápidos', state: 'CREADO', assignee: null, area: 'operaciones', nivel: 'media' },
+    // Caso en la bolsa de un area que Carlos NO cubre: demuestra que el filtro
+    // de elegibilidad esconde oportunidades que no encajan con la ficha.
+    { humanId: 'NOD-2026-010', company: 'Comercial Andes', state: 'EN_POSTULACION', assignee: null, area: 'legal', nivel: 'alta' },
+    // Negocio PERDIDO: la rama que separa "cerrado" de "convertido".
+    {
+      humanId: 'NOD-2026-011', company: 'Constructora del Norte', state: 'CERRADO_SIN_CONTRATACION',
+      assignee: 'consultor', area: 'operaciones', nivel: 'alta',
+      bifurcaEn: 'EN_DECISION_CLIENTE', desvio: ['cerrar_sin_contratacion'],
+    },
+    // La empresa pidio ajustes y el caso espera al consultor.
+    {
+      humanId: 'NOD-2026-012', company: 'EduPlus Academia', state: 'AJUSTES_DE_PROPUESTA',
+      assignee: 'consultor', area: 'marketing', nivel: 'media',
+      bifurcaEn: 'EN_DECISION_CLIENTE', desvio: ['solicitar_ajustes'],
+    },
+    // Ciclo completo de ajuste: pidio cambios y el consultor REENVIO. Entra dos
+    // veces en "Propuesta enviada", que es lo que prueba que el embudo cuenta
+    // casos y no visitas.
+    {
+      humanId: 'NOD-2026-013', company: 'Textiles Andinos', state: 'PROPUESTA_ENVIADA',
+      assignee: 'consultor', area: 'finanzas', nivel: 'media',
+      bifurcaEn: 'EN_DECISION_CLIENTE', desvio: ['solicitar_ajustes', 'reenviar_propuesta'],
+    },
   ];
 
   /**
@@ -556,21 +635,42 @@ await prisma.notification.deleteMany();
      * reales en cada etapa— en cero para todo salvo CREADO.
      */
     const pasos: typeof transitions = [];
-    if (c.state !== 'CREADO') {
-      let actual = 'CREADO';
+    let actual = 'CREADO';
+    // `hasta` es donde termina el tramo feliz; si el caso se desvia, la ruta
+    // feliz lleva al punto de bifurcacion y `desvio` hace el resto.
+    const hasta = c.desvio ? c.bifurcaEn! : c.state;
+    if (hasta !== 'CREADO') {
       for (const code of rutaFeliz) {
         const t = transicionPorCodigo.get(code);
         if (!t || t.from !== actual) continue;
         pasos.push(t);
         actual = t.to;
-        if (actual === c.state) break;
+        if (actual === hasta) break;
       }
-      if (actual !== c.state) {
+      if (actual !== hasta) {
         throw new Error(
-          `Seed: no hay ruta feliz de CREADO a ${c.state} (${c.humanId}). ` +
+          `Seed: no hay ruta feliz de CREADO a ${hasta} (${c.humanId}). ` +
             'Revisa `rutaFeliz` si cambiaste el maestro de transiciones.',
         );
       }
+    }
+    // Desvio: los caminos que NO son el feliz (pedir ajustes, cerrar sin
+    // contratacion). Sin ellos el producto se demuestra solo por su mejor
+    // caso, que es justo el que no hace falta probar.
+    for (const code of c.desvio ?? []) {
+      const t = transicionPorCodigo.get(code);
+      if (!t || t.from !== actual) {
+        throw new Error(
+          `Seed: el desvio '${code}' no sale de ${actual} (${c.humanId}).`,
+        );
+      }
+      pasos.push(t);
+      actual = t.to;
+    }
+    if (actual !== c.state) {
+      throw new Error(
+        `Seed: ${c.humanId} termina en ${actual} y declara ${c.state}.`,
+      );
     }
 
     // Las marcas de tiempo se reparten hacia atras para que la linea de tiempo
@@ -684,6 +784,33 @@ await prisma.notification.deleteMany();
         data: { caseId: created.id, ruleId: rule.id, startedAt, dueAt, status: 'RUNNING' },
       });
     }
+  }
+
+  /**
+   * Postulaciones en la bolsa.
+   *
+   * Sin ellas, "Asignar consultor" —el punto 3 del encargo— no se podia
+   * demostrar: advisory abria el caso en bolsa y no habia a quien asignar, asi
+   * que habia que entrar como consultor, postularse y volver. Dos candidatos y
+   * no uno, porque asignar es ELEGIR.
+   *
+   * Los dos encajan con el caso (finanzas, complejidad media) y estan
+   * habilitados: son postulaciones que el procedure real habria aceptado.
+   */
+  const casoEnBolsa = createdCases['NOD-2026-003'];
+  for (const [i, clave] of ['consultor', 'consultor3'].entries()) {
+    await prisma.postulation.create({
+      data: {
+        tenantId: tenant.id,
+        caseId: casoEnBolsa,
+        consultorId: users[clave],
+        note:
+          i === 0
+            ? 'He llevado tres diagnosticos financieros en el sector salud.'
+            : 'Disponible desde la proxima semana; experiencia en costos.',
+        status: 'PENDIENTE',
+      },
+    });
   }
 
   // Repositorio documental (F3): entregable versionado en el caso en ejecucion.
@@ -835,7 +962,19 @@ await prisma.notification.deleteMany();
   console.log('  estados:', stateData.length, '| transiciones:', transitions.length, '| SLA rules:', slaData.length);
   console.log('  plantillas comunicacion:', commTemplates.length, '| reglas de comunicacion:', commRules.length, '| plantillas F4:', consultingTemplates.length);
   console.log('  empresas:', companyNames.length, '| casos:', caseData.length);
-  console.log('  consultores:', consultantData.length, '(habilitado: Carlos CON-000001, registrado: Diana CON-000002)');
+  // Por estado, no dos nombres fijos: el resumen tiene que seguir siendo
+  // cierto cuando cambien los datos demo.
+  const porEstado = consultantData.reduce<Record<string, number>>((acc, c) => {
+    acc[c.status] = (acc[c.status] ?? 0) + 1;
+    return acc;
+  }, {});
+  const postulaciones = await prisma.postulation.count();
+  console.log(
+    '  consultores:',
+    consultantData.length,
+    '(' + Object.entries(porEstado).map(([e, n]) => `${e}: ${n}`).join(', ') + ')',
+  );
+  console.log('  postulaciones en bolsa:', postulaciones);
   // Se cuenta, no se afirma: el entregable demo se omite cuando no hay
   // almacenamiento, y un resumen que no mide lo que dice no sirve de nada.
   const docCount = await prisma.document.count();
@@ -848,7 +987,12 @@ await prisma.notification.deleteMany();
     docCount === 0 ? '(omitido: sin almacenamiento de objetos)' : '',
   );
   console.log('  bitacora hash-chain:', seq, 'registros | ultimo hash:', (prevHash ?? '').slice(0, 16) + '...');
-  console.log('  login demo -> advisory@demo.nodus / demo1234 (y consultor@, consultor2@, mipyme@, admin@)');
+  // Se listan TODOS: antes se nombraban cinco de nueve, y los que faltaban
+  // eran justo los que pueblan el directorio de consultores.
+  console.log('  contrasena unica: demo1234');
+  for (const u of userData) {
+    console.log(`    ${u.email.padEnd(24)} ${u.role.padEnd(10)} ${u.name}`);
+  }
 }
 
 main()
