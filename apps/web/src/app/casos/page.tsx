@@ -10,7 +10,9 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { KanbanBoard } from '@/components/ui/kanban-board';
 import { SkeletonTable } from '@/components/ui/skeleton';
+import { aplicarFiltroCasos, hayFiltroCasos, leerFiltroCasos } from '@/lib/filtro-casos';
 import { VistaToggle, useVistaCasos } from './_vista-toggle';
+import { FiltroActivo } from './_filtros';
 
 type Caso = RouterOutputs['cases']['list'][number];
 
@@ -21,7 +23,25 @@ function CasosContenido() {
   const params = useSearchParams();
   // Permite aterrizar aqui ya filtrado desde el directorio de empresas.
   const empresaFiltro = params.get('empresa') ?? '';
+  /**
+   * Filtro declarado en la URL. Es el destino de los KPIs del panel: cada
+   * cifra de arriba enlaza a la lista exacta que esa cifra cuenta.
+   */
+  const filtro = leerFiltroCasos(params);
+  const casos = data ? aplicarFiltroCasos(data, filtro) : undefined;
+  // El nombre del estado sale del propio dato, no de un diccionario paralelo.
+  const nombreEstado = filtro.estado
+    ? (data ?? []).find((c) => c.state.code === filtro.estado)?.state.name ?? null
+    : null;
   const [vista, setVista] = useVistaCasos();
+  /**
+   * Con filtro activo la lista vacía NO dice «aún no hay casos»: diría que no
+   * existen cuando lo que pasa es que ninguno cumple el filtro, y manda a
+   * buscar un fallo donde no lo hay.
+   */
+  const vacio = hayFiltroCasos(filtro)
+    ? 'Ningún caso cumple el filtro. Quítalo para ver la lista completa.'
+    : 'Aún no hay casos registrados.';
   // El boton refleja el permiso real de la capa (no una regla propia de la UI).
   const canCreate = session?.user ? canPerform(session.user, 'case.create') : false;
 
@@ -81,7 +101,7 @@ function CasosContenido() {
   // asi no hay una segunda definicion del flujo viviendo en la interfaz.
   const columnas = (() => {
     const porEstado = new Map<string, { status: string; name: string; color: string | null; cards: Caso[] }>();
-    for (const c of data ?? []) {
+    for (const c of casos ?? []) {
       const clave = c.state.name;
       if (!porEstado.has(clave)) {
         porEstado.set(clave, { status: clave, name: c.state.name, color: c.state.color, cards: [] });
@@ -118,6 +138,14 @@ function CasosContenido() {
           )}
         </div>
       </div>
+      {data && (
+        <FiltroActivo
+          filtro={filtro}
+          mostrados={casos?.length ?? 0}
+          total={data.length}
+          nombreEstado={nombreEstado}
+        />
+      )}
       <Card>
         <CardHeader>
           <CardTitle>Casos en curso · desde PostgreSQL</CardTitle>
@@ -129,13 +157,13 @@ function CasosContenido() {
             ) : error ? (
               <p role="alert" className="text-sm text-danger">{error.message}</p>
             ) : columnas.length === 0 ? (
-              <p className="text-sm text-ink-muted">Aún no hay casos registrados.</p>
+              <p className="text-sm text-ink-muted">{vacio}</p>
             ) : (
               <KanbanBoard columns={columnas} onCardClick={(c) => router.push(`/casos/${c.id}`)} />
             )
           ) : (
           <DataTable
-            rows={data}
+            rows={casos}
             columns={columns}
             getRowKey={(c) => c.id}
             isLoading={isLoading}
@@ -144,7 +172,7 @@ function CasosContenido() {
             // alguien recuerda de un caso cuando lo busca.
             searchText={(c) => `${c.humanId} ${c.company} ${c.state.name} ${c.assignee ?? ''}`}
             searchPlaceholder="Buscar por ID, empresa o estado…"
-            emptyMessage="Aún no hay casos registrados."
+            emptyMessage={vacio}
             onRowClick={(c) => router.push(`/casos/${c.id}`)}
             initialSearch={empresaFiltro}
           />

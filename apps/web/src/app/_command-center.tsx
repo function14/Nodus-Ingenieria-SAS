@@ -28,6 +28,34 @@ const KPI_ICON: Record<string, typeof Clock3> = {
 };
 
 /**
+ * A dónde lleva cada KPI. Igual que el icono, se resuelve por `key` y no por
+ * la etiqueta: el servidor manda el dato y el enrutado se queda en la UI, que
+ * es de quien es.
+ *
+ * Cada destino es la lista EXACTA que esa cifra cuenta, usando el filtro de
+ * `/casos`. Un KPI que dice 10 y te deja en una lista de 14 destruye la
+ * confianza en el panel entero, así que «activos» y «cerrados» van filtrados
+ * por `cierre`, que se resuelve con el `isTerminal` del workflow.
+ *
+ * Dos casos no son una lista de casos y se tratan distinto en vez de forzarlos:
+ *
+ * - «Conversión» es un porcentaje; lo que lo explica es el embudo, que está en
+ *   esta misma página. El enlace baja hasta él.
+ * - «SLA críticos» cuenta relojes vencidos, no casos. Lleva al centro de SLA y
+ *   alertas, donde vive el aviso de cada vencimiento. El desglose caso a caso
+ *   exigiría exponer el SLA en `cases.list`, y el cálculo del porcentaje ya
+ *   vive en la proyección del consultor: duplicarlo es cómo dos vistas acaban
+ *   dando números distintos. Si ese drill-down se quiere, primero se extrae el
+ *   cálculo a un sitio único.
+ */
+const KPI_DESTINO: Record<string, { href: string; cta: string }> = {
+  activos: { href: '/casos?cierre=abiertos', cta: 'Ver los casos activos' },
+  sla: { href: '/alertas', cta: 'Ver SLA y alertas' },
+  conversion: { href: '#embudo', cta: 'Ver el embudo' },
+  cerrados: { href: '/casos?cierre=cerrados', cta: 'Ver los cerrados' },
+};
+
+/**
  * Command Center del PMO.
  *
  * Vive en su propio archivo porque `/` sirve ahora tres paneles distintos y
@@ -81,6 +109,8 @@ export function CommandCenter() {
                 delta={kpi.delta}
                 tono={kpi.tono}
                 icon={KPI_ICON[kpi.key]}
+                href={KPI_DESTINO[kpi.key]?.href}
+                cta={KPI_DESTINO[kpi.key]?.cta}
               />
             ))}
           </section>
@@ -115,7 +145,9 @@ export function CommandCenter() {
             </Card>
           </section>
 
-          <Card>
+          {/* Destino del KPI «Conversión»: el embudo es lo que explica el
+              porcentaje, y ya está en esta página. */}
+          <Card id="embudo">
             <CardHeader>
               <CardTitle>Embudo de conversión</CardTitle>
             </CardHeader>

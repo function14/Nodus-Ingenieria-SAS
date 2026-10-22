@@ -1,8 +1,28 @@
 import { type ReactNode } from 'react';
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function Card({
+  children,
+  className = '',
+  id,
+}: {
+  children: ReactNode;
+  className?: string;
+  /**
+   * Ancla de la tarjeta. Los KPIs de los paneles enlazan al bloque que explica
+   * su cifra, y cuando ese bloque ya está en la misma página el destino es esta
+   * tarjeta. El `id` va aquí y no en un `<section>` envolvente porque varias de
+   * estas tarjetas son hijas directas de un grid: meter un contenedor en medio
+   * les cambiaría el alto.
+   */
+  id?: string;
+}) {
   return (
-    <div className={`bg-surface border border-border rounded-xl shadow-offset-sm ${className}`}>
+    <div
+      id={id}
+      className={`bg-surface border border-border rounded-xl shadow-offset-sm ${
+        id ? 'scroll-mt-4' : ''
+      } ${className}`}
+    >
       {children}
     </div>
   );

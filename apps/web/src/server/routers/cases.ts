@@ -56,8 +56,25 @@ export const casesRouter = router({
             code: c.currentState.code,
             name: c.currentState.name,
             color: c.currentState.color,
+            /**
+             * Si el estado es final lo dice el workflow, no la interfaz.
+             *
+             * La lista se puede filtrar por «abiertos / cerrados» (es a donde
+             * llevan los KPIs del panel). Sin este campo la UI tendría que
+             * saberse de memoria cuáles de los 17 estados son terminales
+             * —hoy CERRADO y CERRADO_SIN_CONTRATACION—, y eso es una segunda
+             * copia de la definición del flujo viviendo en la pantalla: el día
+             * que Administración añada un cierre, el filtro mentiría.
+             */
+            isTerminal: c.currentState.isTerminal,
           },
           assignee: c.assignedUser?.name ?? null,
+          /**
+           * «¿Es mío?» se resuelve por id en el servidor, no comparando el
+           * nombre del responsable con el del usuario en el cliente: los
+           * nombres se repiten y además el nombre puede venir enmascarado.
+           */
+          mio: c.assignedUserId === ctx.user.id,
           updatedAt: c.updatedAt,
           masked: view.masked,
         };

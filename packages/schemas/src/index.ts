@@ -32,8 +32,12 @@ export const caseListItemSchema = z.object({
     code: z.string(),
     name: z.string(),
     color: z.string().nullable(),
+    /** Lo declara el workflow; la UI filtra «abiertos/cerrados» con esto. */
+    isTerminal: z.boolean(),
   }),
   assignee: z.string().nullable(),
+  /** Resuelto por id en el servidor, para el filtro «a mi cargo». */
+  mio: z.boolean(),
   updatedAt: z.date(),
 });
 export type CaseListItem = z.infer<typeof caseListItemSchema>;

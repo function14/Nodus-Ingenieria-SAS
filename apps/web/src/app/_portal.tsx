@@ -63,7 +63,14 @@ export function Portal() {
       {data && (
         <>
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatBlock label="Casos abiertos" value={data.resumen.activos} delta={`${data.resumen.total} en total`} icon={FolderOpen} />
+            <StatBlock
+              label="Casos abiertos"
+              value={data.resumen.activos}
+              delta={`${data.resumen.total} en total`}
+              icon={FolderOpen}
+              href="/casos?cierre=abiertos"
+              cta="Ver la lista"
+            />
             <StatBlock
               label="Esperan tu decisión"
               value={data.resumen.decisionesPendientes}
@@ -72,18 +79,32 @@ export function Portal() {
               }
               tono={data.resumen.decisionesPendientes > 0 ? 'alerta' : 'neutral'}
               icon={HelpCircle}
+              // Sin decisiones pendientes el bloque de abajo no se renderiza, y
+              // un enlace a un ancla que no existe no hace nada: peor que no
+              // tener enlace.
+              href={data.resumen.decisionesPendientes > 0 ? '#esperan-tu-decision' : undefined}
+              cta="Ir a las decisiones"
             />
-            <StatBlock label="Cerrados" value={data.resumen.cerrados} delta="historial" icon={CheckCircle2} />
+            <StatBlock
+              label="Cerrados"
+              value={data.resumen.cerrados}
+              delta="historial"
+              icon={CheckCircle2}
+              href="/casos?cierre=cerrados"
+              cta="Ver el historial"
+            />
             <StatBlock
               label="Con consultor"
               value={data.misCasos.filter((c) => c.consultor).length}
               delta="ya asignados"
               icon={UserCheck}
+              href="/casos?responsable=asignado"
+              cta="Ver quién lleva cada caso"
             />
           </section>
 
           {conDecision.length > 0 && (
-            <section className="flex flex-col gap-3">
+            <section id="esperan-tu-decision" className="flex flex-col gap-3 scroll-mt-4">
               <h2 className="text-lg font-[family-name:var(--font-display)] font-bold">
                 Esperan tu decisión
               </h2>

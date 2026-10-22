@@ -48,17 +48,24 @@ export function Workbench() {
       {data && (
         <>
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Cada cifra enlaza a su detalle. Las dos que ya están desplegadas
+                en esta misma página bajan hasta su bloque en vez de mandarte a
+                otra vista a buscar lo que tienes debajo. */}
             <StatBlock
               label="Casos asignados"
               value={data.resumen.asignados}
               delta="en curso"
               icon={Briefcase}
+              href="/casos?responsable=mi&cierre=abiertos"
+              cta="Ver mis casos en la lista"
             />
             <StatBlock
               label="Esperan mi acción"
               value={data.resumen.pendientesDeMi}
               delta={data.resumen.pendientesDeMi > 0 ? 'Puedes avanzarlos ya' : 'Nada pendiente'}
               icon={ArrowRight}
+              href="#te-toca-mover"
+              cta="Ir a lo pendiente"
             />
             <StatBlock
               label="SLA en riesgo"
@@ -66,16 +73,20 @@ export function Workbench() {
               delta={data.resumen.enRiesgo > 0 ? 'Requieren acción' : 'Todo a tiempo'}
               tono={data.resumen.enRiesgo > 0 ? 'alerta' : 'neutral'}
               icon={AlertTriangle}
+              href="/alertas"
+              cta="Ver SLA y alertas"
             />
             <StatBlock
               label="Postulaciones abiertas"
               value={data.resumen.postulacionesAbiertas}
               delta="sin resolver"
               icon={Send}
+              href="#mis-postulaciones"
+              cta="Ver mis postulaciones"
             />
           </section>
 
-          <Card>
+          <Card id="te-toca-mover">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ArrowRight size={15} className="text-primary" aria-hidden="true" />
@@ -168,7 +179,7 @@ export function Workbench() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card id="mis-postulaciones">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="flex items-center gap-2">
